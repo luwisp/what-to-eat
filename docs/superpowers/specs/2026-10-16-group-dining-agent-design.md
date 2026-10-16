@@ -9,6 +9,8 @@
 
 **定位**：创新比赛作品（录视频展示，无现场演示）。
 
+**架构语言**：后端采用华为自研仓颉（Cangjie）语言——团队明确决策，兼具"国产自研栈"叙事点；前端为静态 HTML/JS。
+
 **成功标准**：
 
 1. 核心闭环可用：建局 → 扫码进局 → 勾选偏好 → 实时聚合 → agent 推荐 → 对话调整
@@ -34,27 +36,37 @@
 
 ## 4. 系统架构
 
-**技术栈**：Next.js（App Router，TypeScript）单仓 + socket.io + SQLite（Drizzle ORM）+ DeepSeek API（openai 兼容接口，可替换）。
+**技术栈**：仓颉（Cangjie）后端 + 静态前端。
+
+- 后端语言：华为自研仓颉（SDK 默认 LTS 1.0.5），官方 `net.http` 标准库（HTTP/1.1 / HTTP/2 / WebSocket 服务器），社区备选 [tycj-net](https://gitcode.com/tybb2026/tycj-net/tree/)、[tycj-web](https://gitcode.com/tybb2026/tycj-web/tree/)
+- 存储：[sqlite4cj](https://gitcode.com/AlonNas/sqlite4cj/tree/main)（CFFI 封装原生 SQLite，MIT）——W1 须在开发环境验证；**兜底：JSON 文件持久化**（1~2 家店演示规模完全够用）
+- LLM：DeepSeek（openai 兼容接口），仓颉 HTTP client + JSON 手写调用，`llm.cj` 适配层可替换
+- 前端：静态 HTML/CSS/JS，由仓颉 server 托管；浏览器原生 WebSocket（不用 socket.io，断线重连由前端手写：指数退避 + 重连后拉全量快照）
 
 ```
-app/            用户端页面：扫码进局 → 勾选偏好 → 结果页
-app/admin/      商家后台：单密码进入，录餐厅/菜品（无完整登录体系）
-app/api/        REST 路由：房间、菜品、agent 会话
-server/         自定义 Node server：挂 socket.io 做实时广播
-lib/agent/      agent 层（核心创新点）
-  ├─ llm.ts        LLM 适配器（DeepSeek 默认，可替换为其他 openai 兼容服务）
-  ├─ rules.ts      规则引擎：纯函数，硬约束过滤/冲突检测/确定性推荐
-  ├─ tools.ts      工具定义（搜菜/查菜/调整推荐）→ function calling
-  └─ prompt.ts     提示词
-lib/db/          SQLite + Drizzle（1~2 家店、演示规模，免运维）
+web/             静态前端（HTML/CSS/JS，由仓颉 server 托管）
+src/main/        入口：HTTP + WebSocket server（net.http）
+src/agent/       agent 层（核心创新点）
+  ├─ llm.cj        LLM 适配器（DeepSeek 默认，可替换为其他 openai 兼容服务）
+  ├─ rules.cj      规则引擎：纯函数，硬约束过滤/冲突检测/确定性推荐
+  ├─ tools.cj      工具定义（搜菜/查菜/调整推荐）→ function calling
+  └─ prompt.cj     提示词
+src/store/       SQLite 存储层（sqlite4cj；兜底 JSON 文件）
+src/model/       数据模型
 ```
 
 **关键边界**：
 
-- `rules.ts` 不依赖 LLM，**必须能独立产出确定性推荐**（降级路径与双保险叙事的基础）
-- `llm.ts` 不关心业务，只负责"问模型要结构化 JSON"
+- `rules.cj` 不依赖 LLM，**必须能独立产出确定性推荐**（降级路径与双保险叙事的基础）
+- `llm.cj` 不关心业务，只负责"问模型要结构化 JSON"
 - 实时层只做房间状态广播，不掺业务逻辑
-- 每层可独立理解、独立测试
+- 每层可独立理解、独立测试（仓颉内置测试框架）
+
+**生态风险与兜底**（W1 验证项）：
+
+- sqlite4cj 在开发环境不可用 → 换 JSON 文件持久化，接口不变
+- `net.http` WebSocket 遇坑 → 换社区 tycj-net / tycj-web
+- 存储与网络只是实现替换，不影响上层设计（分层边界的意义所在）
 
 ## 5. 数据模型
 
@@ -77,7 +89,7 @@ lib/db/          SQLite + Drizzle（1~2 家店、演示规模，免运维）
 6. 对话调整："换个不辣的鱼""再加个汤" → agent 调整 → 规则复检 → 结果页「忌口 0 违反」标记点亮
 7. 确认定格：结果可投屏、截图，作为整桌的"决策凭证"
 
-**实时协议（socket.io）**：
+**实时协议（WebSocket）**：
 
 - 客户端 → 服务端：`join_room(code, nickname)`、`update_preferences(prefs)`、`request_recommendation()`、`chat_message(text)`、`restart()`
 - 服务端 → 客户端：`room_state`（成员 + 聚合偏好）、`recommendation_result`、`recommendation_started`（大屏仪式感动画）、`chat_delta`（流式回复）、`error`
@@ -93,13 +105,13 @@ lib/db/          SQLite + Drizzle（1~2 家店、演示规模，免运维）
 
 | 层 | 职责 | 确定性 |
 |---|---|---|
-| ① 规则引擎 `rules.ts` | 输入全桌忌口 + 菜品库 → 输出**安全候选集**、冲突检测（"该店仅 4 道不辣菜，是否放宽？"）、**确定性推荐**（荤素比约 6:4 + N 人约 N+2 道 + 价格区间 + 招牌优先；无 LLM 也可用） | 100% |
+| ① 规则引擎 `rules.cj` | 输入全桌忌口 + 菜品库 → 输出**安全候选集**、冲突检测（"该店仅 4 道不辣菜，是否放宽？"）、**确定性推荐**（荤素比约 6:4 + N 人约 N+2 道 + 价格区间 + 招牌优先；无 LLM 也可用） | 100% |
 | ② LLM 推荐 | 安全候选集 + 软偏好 + 人数 + 预算 → DeepSeek 返回结构化 JSON（菜品/理由/总价）。**模型只能在候选集内选菜**，工具 `search_dishes` 也只检索候选集——从机制上保证忌口永不破 | 增强层 |
 | ③ 对话调整 | 追问 → 工具调用（search_dishes / get_dish / adjust_recommendation）→ 每次输出前规则引擎复检 | 增强层 |
 
 **防翻车细节**：
 
-- LLM 输出经 JSON Schema 校验，失败重试 1 次，再失败走规则推荐
+- LLM 输出经 JSON 结构校验（字段级手写校验器），失败重试 1 次，再失败走规则推荐
 - 推荐理由**由模板从 DB 字段生成事实**（"清蒸鲈鱼 · 微辣，满足 2 位想吃鱼的偏好"），LLM 只润色不编造，杜绝幻觉
 - 30 秒超时自动切本地规则模式，UI 明示"已切换本地推荐模式"（对话禁用，推荐可用）
 
@@ -117,7 +129,7 @@ lib/db/          SQLite + Drizzle（1~2 家店、演示规模，免运维）
 | DeepSeek 超时/限流/Key 失效 | 30s 超时 → 重试 1 次 → 切规则推荐，UI 明示"本地模式"（对话禁用，推荐可用） |
 | 推荐 JSON 不合法 | Schema 校验失败 → 重试 1 次 → 规则推荐 |
 | 约束冲突无法满足 | 规则引擎给出"可满足度"警告 + 例外选项，由全桌人决定放宽哪条——这是产品亮点，不是错误 |
-| WS 断线 | socket.io 自动重连 + 拉全量快照 |
+| WS 断线 | 前端指数退避重连（原生 WebSocket 手写）+ 重连后拉全量快照 |
 | 无外网（LLM 不可用） | 规则模式完整可演示（双保险叙事的实证） |
 | 服务崩溃 | 房间落 SQLite，重启后按短码恢复 |
 
@@ -135,17 +147,17 @@ lib/db/          SQLite + Drizzle（1~2 家店、演示规模，免运维）
 
 ## 11. 测试策略
 
-- **规则引擎单测**（vitest）：忌口排除、素食桌、冲突检测、凑单份量——纯函数全分支覆盖
+- **规则引擎单测**（仓颉内置测试框架）：忌口排除、素食桌、冲突检测、凑单份量——纯函数全分支覆盖
 - **agent 层单测**：mock LLM 适配器，测 prompt 组装、JSON Schema 校验、一次重试、降级切换
 - **工具安全测**：固定菜品库下 `search_dishes` 只返回安全候选集
-- **关键路径 e2e**（Playwright）：建局 → 3 人进局 → 勾选 → 推荐 → 对话调整，一条脚本全跑
+- **关键路径 e2e**（Playwright，驱动浏览器、与后端语言无耦合）：建局 → 3 人进局 → 勾选 → 推荐 → 对话调整，一条脚本全跑
 - **真实 API 冒烟**：预录数据下跑 10 次真实 DeepSeek 推荐确认稳定（拍摄前必做）
 
 ## 12. 里程碑（4 周）
 
 | 周 | 目标 |
 |---|---|
-| W1 | 脚手架 + DB 模型 + 商家后台（预录 2 家店：主打川菜馆 25 道菜） |
+| W1 | 工具链与生态验证（装仓颉 SDK LTS 1.0.5；跑通 HTTP/WS 最小示例；验证 sqlite4cj 在开发环境可用，不可用则定 JSON 文件方案）+ 数据模型 + 商家后台（预录 2 家店：主打川菜馆 25 道菜） |
 | W2 | 建局/扫码/勾选 + WS 实时聚合 + 大屏视图（周末应能拍出"协同"素材） |
 | W3 | 规则引擎 + DeepSeek agent（推荐/对话/降级）+ 单测 |
 | W4 | e2e → 拍摄（1~2 天）→ 剪辑（1~2 天）+ 重拍缓冲 + 答辩材料 |
@@ -159,3 +171,4 @@ lib/db/          SQLite + Drizzle（1~2 家店、演示规模，免运维）
 1. 视频拍摄设备方案：浏览器多开模拟多人 vs 多台真机
 2. 菜品图片来源（版权规避）
 3. 视频旁白/字幕语言与形式
+4. 前端 UI 实现方式：原生 JS 直写 vs Vite 轻量构建（最终均产出静态文件由仓颉托管）
