@@ -717,6 +717,7 @@ public class Session {
     public var people: Int64
     public var budgetPerPersonFen: ?Int64
     public var stateVersion: Int64
+    public var menuVersion: Int64
     public var createdAt: Int64
     public var expiresAt: Int64
     public var recommendationInvalid: Bool
@@ -729,6 +730,7 @@ public class Session {
         people!: Int64 = 4,
         budgetPerPersonFen!: ?Int64 = None,
         stateVersion!: Int64 = 1,
+        menuVersion!: Int64 = 0,
         createdAt!: Int64 = 0,
         expiresAt!: Int64 = 0,
         recommendationInvalid!: Bool = false) {
@@ -740,6 +742,7 @@ public class Session {
         this.people = people
         this.budgetPerPersonFen = budgetPerPersonFen
         this.stateVersion = stateVersion
+        this.menuVersion = menuVersion
         this.createdAt = createdAt
         this.expiresAt = expiresAt
         this.recommendationInvalid = recommendationInvalid
@@ -755,6 +758,7 @@ public class Session {
         obj.put("people", JsonInt(people))
         obj.put("budgetPerPersonFen", match (budgetPerPersonFen) { case Some(v) => JsonInt(v); case None => JsonNull() })
         obj.put("stateVersion", JsonInt(stateVersion))
+        obj.put("menuVersion", JsonInt(menuVersion))
         obj.put("createdAt", JsonInt(createdAt))
         obj.put("expiresAt", JsonInt(expiresAt))
         obj.put("recommendationInvalid", JsonBool(recommendationInvalid))
@@ -770,6 +774,7 @@ public class Session {
             people: obj["people"].asInt().getValue(),
             budgetPerPersonFen: match (obj["budgetPerPersonFen"]) { case _: JsonNull => None; case _ => Some(obj["budgetPerPersonFen"].asInt().getValue()) },
             stateVersion: obj["stateVersion"].asInt().getValue(),
+            menuVersion: obj["menuVersion"].asInt().getValue(),
             createdAt: obj["createdAt"].asInt().getValue(),
             expiresAt: obj["expiresAt"].asInt().getValue(),
             recommendationInvalid: obj["recommendationInvalid"].asBool().getValue())
@@ -1080,6 +1085,7 @@ public class RecommendationDraft {
     public var unmetWishes: Array<UnmetWish>
     public var budgetWarning: ?String
     public var notices: Array<String>
+    public var associations: IngredientAssociations
 
     public init(items!: Array<RecommendationItem> = [],
         expandedDishes!: Array<ExpandedDish> = [],
@@ -1089,7 +1095,8 @@ public class RecommendationDraft {
         uncoveredIds!: Array<String> = [],
         unmetWishes!: Array<UnmetWish> = [],
         budgetWarning!: ?String = None,
-        notices!: Array<String> = []) {
+        notices!: Array<String> = [],
+        associations!: IngredientAssociations = IngredientAssociations()) {
         this.items = items
         this.expandedDishes = expandedDishes
         this.fits = fits
@@ -1099,6 +1106,7 @@ public class RecommendationDraft {
         this.unmetWishes = unmetWishes
         this.budgetWarning = budgetWarning
         this.notices = notices
+        this.associations = associations
     }
 
     public func toJson(): JsonObject {
@@ -1112,6 +1120,7 @@ public class RecommendationDraft {
         obj.put("unmetWishes", JsonArray(unmetWishes.map({item => item.toJson() })))
         obj.put("budgetWarning", match (budgetWarning) { case Some(v) => JsonString(v); case None => JsonNull() })
         obj.put("notices", JsonArray(notices.map({item => JsonString(item) })))
+        obj.put("associations", associations.toJson())
         return obj
     }
 
@@ -1124,7 +1133,8 @@ public class RecommendationDraft {
             uncoveredIds: obj["uncoveredIds"].asArray().getItems().toArray().map({item => item.asString().getValue() }),
             unmetWishes: obj["unmetWishes"].asArray().getItems().toArray().map({item => UnmetWish.fromJson(item.asObject()) }),
             budgetWarning: match (obj["budgetWarning"]) { case _: JsonNull => None; case _ => Some(obj["budgetWarning"].asString().getValue()) },
-            notices: obj["notices"].asArray().getItems().toArray().map({item => item.asString().getValue() }))
+            notices: obj["notices"].asArray().getItems().toArray().map({item => item.asString().getValue() }),
+            associations: IngredientAssociations.fromJson(obj["associations"].asObject()))
     }
 }
 
@@ -1281,6 +1291,8 @@ public class RecommendationJob {
     public var menuVersion: Int64
     public var startedAt: Int64
     public var status: String
+    public var adjustment: ?String
+    public var text: ?String
 
     public init(id!: String = "",
         sessionId!: String = "",
@@ -1289,7 +1301,9 @@ public class RecommendationJob {
         roomVersion!: Int64 = 0,
         menuVersion!: Int64 = 0,
         startedAt!: Int64 = 0,
-        status!: String = "inProgress") {
+        status!: String = "inProgress",
+        adjustment!: ?String = None,
+        text!: ?String = None) {
         this.id = id
         this.sessionId = sessionId
         this.requesterId = requesterId
@@ -1298,6 +1312,8 @@ public class RecommendationJob {
         this.menuVersion = menuVersion
         this.startedAt = startedAt
         this.status = status
+        this.adjustment = adjustment
+        this.text = text
     }
 
     public func toJson(): JsonObject {
@@ -1310,6 +1326,8 @@ public class RecommendationJob {
         obj.put("menuVersion", JsonInt(menuVersion))
         obj.put("startedAt", JsonInt(startedAt))
         obj.put("status", JsonString(status))
+        obj.put("adjustment", match (adjustment) { case Some(v) => JsonString(v); case None => JsonNull() })
+        obj.put("text", match (text) { case Some(v) => JsonString(v); case None => JsonNull() })
         return obj
     }
 
@@ -1321,7 +1339,9 @@ public class RecommendationJob {
             roomVersion: obj["roomVersion"].asInt().getValue(),
             menuVersion: obj["menuVersion"].asInt().getValue(),
             startedAt: obj["startedAt"].asInt().getValue(),
-            status: obj["status"].asString().getValue())
+            status: obj["status"].asString().getValue(),
+            adjustment: match (obj["adjustment"]) { case _: JsonNull => None; case _ => Some(obj["adjustment"].asString().getValue()) },
+            text: match (obj["text"]) { case _: JsonNull => None; case _ => Some(obj["text"].asString().getValue()) })
     }
 }
 
@@ -1444,6 +1464,7 @@ public class CreateSessionInput {
 
 public class RoomSnapshot {
     public var session: Session
+    public var restaurantCode: String
     public var stateVersion: Int64
     public var menuVersion: Int64
     public var members: Array<ParticipantView>
@@ -1451,16 +1472,20 @@ public class RoomSnapshot {
     public var recommendation: ?Recommendation
     public var recommendationInvalid: Bool
     public var job: ?RecommendationJob
+    public var messages: Array<ChatMessage>
 
     public init(session!: Session = Session(),
+        restaurantCode!: String = "",
         stateVersion!: Int64 = 0,
         menuVersion!: Int64 = 0,
         members!: Array<ParticipantView> = [],
         self!: ?Participant = None,
         recommendation!: ?Recommendation = None,
         recommendationInvalid!: Bool = false,
-        job!: ?RecommendationJob = None) {
+        job!: ?RecommendationJob = None,
+        messages!: Array<ChatMessage> = []) {
         this.session = session
+        this.restaurantCode = restaurantCode
         this.stateVersion = stateVersion
         this.menuVersion = menuVersion
         this.members = members
@@ -1468,11 +1493,13 @@ public class RoomSnapshot {
         this.recommendation = recommendation
         this.recommendationInvalid = recommendationInvalid
         this.job = job
+        this.messages = messages
     }
 
     public func toJson(): JsonObject {
         let obj = JsonObject()
         obj.put("session", session.toJson())
+        obj.put("restaurantCode", JsonString(restaurantCode))
         obj.put("stateVersion", JsonInt(stateVersion))
         obj.put("menuVersion", JsonInt(menuVersion))
         obj.put("members", JsonArray(members.map({item => item.toJson() })))
@@ -1480,18 +1507,21 @@ public class RoomSnapshot {
         obj.put("recommendation", match (recommendation) { case Some(v) => v.toJson(); case None => JsonNull() })
         obj.put("recommendationInvalid", JsonBool(recommendationInvalid))
         obj.put("job", match (job) { case Some(v) => v.toJson(); case None => JsonNull() })
+        obj.put("messages", JsonArray(messages.map({item => item.toJson() })))
         return obj
     }
 
     public static func fromJson(obj: JsonObject): RoomSnapshot {
         return RoomSnapshot(session: Session.fromJson(obj["session"].asObject()),
+            restaurantCode: obj["restaurantCode"].asString().getValue(),
             stateVersion: obj["stateVersion"].asInt().getValue(),
             menuVersion: obj["menuVersion"].asInt().getValue(),
             members: obj["members"].asArray().getItems().toArray().map({item => ParticipantView.fromJson(item.asObject()) }),
             self: match (obj["self"]) { case _: JsonNull => None; case _ => Some(Participant.fromJson(obj["self"].asObject())) },
             recommendation: match (obj["recommendation"]) { case _: JsonNull => None; case _ => Some(Recommendation.fromJson(obj["recommendation"].asObject())) },
             recommendationInvalid: obj["recommendationInvalid"].asBool().getValue(),
-            job: match (obj["job"]) { case _: JsonNull => None; case _ => Some(RecommendationJob.fromJson(obj["job"].asObject())) })
+            job: match (obj["job"]) { case _: JsonNull => None; case _ => Some(RecommendationJob.fromJson(obj["job"].asObject())) },
+            messages: obj["messages"].asArray().getItems().toArray().map({item => ChatMessage.fromJson(item.asObject()) }))
     }
 }
 

@@ -27,7 +27,7 @@ SCHEMA = {
     'SetMeal': 'id:String restaurantId:String name:String imageUrl:String components:[SetMealComponent] priceFen:Int64',
     'MenuVersion': 'restaurantId:String menuVersion:Int64',
     'MenuSnapshot': 'restaurant:Restaurant menuVersion:Int64 dishes:[Dish] setMeals:[SetMeal]',
-    'Session': 'id:String roomCode:String restaurantId:String hostParticipantId:String state:String=open people:Int64=4 budgetPerPersonFen:?Int64 stateVersion:Int64=1 createdAt:Int64 expiresAt:Int64 recommendationInvalid:Bool',
+    'Session': 'id:String roomCode:String restaurantId:String hostParticipantId:String state:String=open people:Int64=4 budgetPerPersonFen:?Int64 stateVersion:Int64=1 menuVersion:Int64 createdAt:Int64 expiresAt:Int64 recommendationInvalid:Bool',
     'Participant': 'id:String sessionId:String userId:?String visitorId:?String nickname:String avatarColor:?String submitted:Bool preferences:Preferences draft:Preferences joinedAt:Int64 source:String=self filledByParticipantId:?String',
     'ParticipantView': 'id:String nickname:String avatarColor:?String submitted:Bool preferences:?Preferences source:String=self filledByParticipantId:?String',
     'RecommendationItem': 'itemType:String=dish itemId:String quantity:Int64=1 name:String unitPriceFen:Int64',
@@ -36,16 +36,16 @@ SCHEMA = {
     'MemberFit': 'status:String=fit reasons:[String]',
     'DishFit': 'dishId:String memberId:String status:String=fit reasons:[String]',
     'UnmetWish': 'memberId:String itemType:String itemId:String reason:String',
-    'RecommendationDraft': 'items:[RecommendationItem] expandedDishes:[ExpandedDish] fits:[DishFit] totalFen:Int64 undercoveredIds:[String] uncoveredIds:[String] unmetWishes:[UnmetWish] budgetWarning:?String notices:[String]',
+    'RecommendationDraft': 'items:[RecommendationItem] expandedDishes:[ExpandedDish] fits:[DishFit] totalFen:Int64 undercoveredIds:[String] uncoveredIds:[String] unmetWishes:[UnmetWish] budgetWarning:?String notices:[String] associations:IngredientAssociations',
     'Recommendation': 'id:String sessionId:String roomVersion:Int64 menuVersion:Int64 mode:String=rules draft:RecommendationDraft canConfirm:Bool createdAt:Int64 accepted:Bool',
     'ChatMessage': 'id:String sessionId:String sender:String role:String content:String createdAt:Int64',
     'DedupeRecord': 'scope:String actorId:String requestId:String operation:String resultJson:String expiresAt:Int64',
-    'RecommendationJob': 'id:String sessionId:String requesterId:String requestId:String roomVersion:Int64 menuVersion:Int64 startedAt:Int64 status:String=inProgress',
+    'RecommendationJob': 'id:String sessionId:String requesterId:String requestId:String roomVersion:Int64 menuVersion:Int64 startedAt:Int64 status:String=inProgress adjustment:?String text:?String',
     'IngredientAssociation': 'ingredient:String related:[String]',
     'IngredientAssociations': 'entries:[IngredientAssociation]',
     'RuleInput': 'menu:MenuSnapshot members:[Participant] people:Int64=4 budgetPerPersonFen:?Int64 associations:IngredientAssociations baseItems:[RecommendationItem] adjustment:?String',
     'CreateSessionInput': 'restaurantCode:String people:Int64=4 budgetPerPersonFen:?Int64',
-    'RoomSnapshot': 'session:Session stateVersion:Int64 menuVersion:Int64 members:[ParticipantView] self:?Participant recommendation:?Recommendation recommendationInvalid:Bool job:?RecommendationJob',
+    'RoomSnapshot': 'session:Session restaurantCode:String stateVersion:Int64 menuVersion:Int64 members:[ParticipantView] self:?Participant recommendation:?Recommendation recommendationInvalid:Bool job:?RecommendationJob messages:[ChatMessage]',
     'StoreConfig': 'path:String',
     'DatabaseSnapshot': 'schemaVersion:Int64=1 users:[UserAccount] merchants:[MerchantAccount] authSessions:[StoredAuthSession] visitorSessions:[StoredVisitorSession] defaultSettings:[UserDefaultSettings] restaurants:[Restaurant] menuVersions:[MenuVersion] dishes:[Dish] setMeals:[SetMeal] sessions:[Session] participants:[Participant] recommendations:[Recommendation] chatMessages:[ChatMessage] dedupeRecords:[DedupeRecord] jobs:[RecommendationJob]',
 }
@@ -111,6 +111,22 @@ def generate():
         args = ',\n            '.join(f'{key}: {decode(kind, f"obj[\"{key}\"]")}' for key, kind, _ in fields)
         lines.extend([f'        return {name}({args})', '    }', '}', ''])
     Path('src/model/entities.cj').write_text('\n'.join(lines))
+    def ts_type(kind):
+        if kind.startswith('['):
+            return ts_type(kind[1:-1]) + '[]'
+        if kind.startswith('?'):
+            return ts_type(kind[1:]) + ' | null'
+        return {'String': 'string', 'Int64': 'number', 'Bool': 'boolean'}.get(kind, kind)
+    types = ['// Generated from scripts/generate-models.py; edit the shared schema.']
+    for name, spec in SCHEMA.items():
+        types.append(f'export interface {name} {{')
+        for field in spec.split():
+            key, kind = field.split(':', 1)
+            types.append(f'  {key}: {ts_type(kind.split("=")[0])};')
+        types.append('}')
+    dest = Path('frontend/src/shared/contracts.ts')
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text('\n'.join(types) + '\n')
 
 
 if __name__ == '__main__':

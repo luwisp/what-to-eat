@@ -1,6 +1,7 @@
 package huaiwei.platform
 
 import std.collection.*
+import std.io.*
 import stdx.net.http.*
 import stdx.log.*
 import stdx.encoding.json.*
@@ -21,6 +22,11 @@ public class ServerConfig {
 public class HttpRouter <: HttpRequestDistributor {
     let routes = HashMap<String, HttpRequestHandler>()
     let moduleRoutes = ArrayList<ModuleRoute>()
+    var pageHandler: ?HttpRequestHandler = None
+
+    public func pages(handler: HttpRequestHandler): Unit {
+        pageHandler = Some(handler)
+    }
 
     public func register(path: String, handler: HttpRequestHandler): Unit {
         if (routes.contains(path)) {
@@ -30,26 +36,47 @@ public class HttpRouter <: HttpRequestDistributor {
     }
 
     public func distribute(path: String): HttpRequestHandler {
-        return routes.get(path) ?? FuncHandler({ctx =>
-            var matchedPath = false
-            for (route in moduleRoutes) {
-                if (let Some(params) <- matchRoutePath(route.path, path)) {
-                    matchedPath = true
-                    if (ctx.request.method == route.method) {
-                        route.handler(ctx, params)
-                        return
+        return routes.get(path) ?? FuncHandler(
+            {
+                ctx =>
+                    var matchedPath = false
+                    for (route in moduleRoutes) {
+                        if (let Some(params) <- matchRoutePath(route.path, path)) {
+                            matchedPath = true
+                            if (ctx.request.method == route.method) {
+                                route.handler(ctx, params)
+                                return
+                            }
+                        }
                     }
-                }
+                    if (!matchedPath && path != "/api" && !path.startsWith("/api/") && path != "/ws") {
+                        if (let Some(handler) <- pageHandler) {
+                            handler.handle(ctx);
+                            return
+                        }
+                    }
+                    jsonError(ctx, if (matchedPath) {
+                        405
+                    } else {
+                        404
+                    }, if (matchedPath) {
+                        "METHOD_NOT_ALLOWED"
+                    } else {
+                        "NOT_FOUND"
+                    }, if (matchedPath) {
+                        "Method not allowed"
+                    } else {
+                        "Route not found"
+                    })
             }
-            jsonError(ctx, if (matchedPath) { 405 } else { 404 },
-                if (matchedPath) { "METHOD_NOT_ALLOWED" } else { "NOT_FOUND" },
-                if (matchedPath) { "Method not allowed" } else { "Route not found" })
-        })
+        )
     }
 
     public func on(method: String, path: String, handler: (HttpContext, HashMap<String, String>) -> Unit): Unit {
         for (route in moduleRoutes) {
-            if (route.method == method && route.path == path) { throw IllegalArgumentException("Duplicate route") }
+            if (route.method == method && route.path == path) {
+                throw IllegalArgumentException("Duplicate route")
+            }
         }
         moduleRoutes.add(ModuleRoute(method, path, handler))
     }
@@ -69,13 +96,19 @@ class ModuleRoute {
 public func matchRoutePath(pattern: String, path: String): ?HashMap<String, String> {
     let expected = pattern.split("/")
     let actual = path.split("/")
-    if (expected.size != actual.size) { return None }
+    if (expected.size != actual.size) {
+        return None
+    }
     let params = HashMap<String, String>()
     for (i in 0..expected.size) {
         if (expected[i].startsWith(":")) {
-            if (actual[i].isEmpty()) { return None }
+            if (actual[i].isEmpty()) {
+                return None
+            }
             params.add(expected[i][1..], actual[i])
-        } else if (expected[i] != actual[i]) { return None }
+        } else if (expected[i] != actual[i]) {
+            return None
+        }
     }
     return Some(params)
 }
@@ -93,25 +126,42 @@ public func jsonResponse(ctx: HttpContext, status: UInt16, value: JsonValue): Un
     ctx.responseBuilder.status(status).header("content-type", "application/json; charset=utf-8").body(value.toString())
 }
 
-public func createHttpServer(config: ServerConfig): Server {
+public func createHttpServer(config: ServerConfig, configure!: (HttpRouter) -> Unit = {_ => ()}): Server {
     let router = HttpRouter()
-    router.register("/health", FuncHandler({ctx =>
-        ctx.responseBuilder.status(200)
+    router.register("/health", FuncHandler({
+        ctx => ctx
+            .responseBuilder
+            .status(200)
             .header("content-type", "application/json; charset=utf-8")
             .body("{\"status\":\"ok\",\"sdk\":\"1.2.0\"}")
     }))
     if (config.enableProbes) {
         router.register("/__probe/ws", FuncHandler(echoWebSocket))
         for (method in ["GET", "POST"]) {
-            router.on(method, "/__probe/items/:id", {ctx, params =>
-                let value = JsonObject()
-                value.put("id", JsonString(params["id"]))
-                value.put("method", JsonString(ctx.request.method))
-                jsonResponse(ctx, if (ctx.request.method == "GET") { 200 } else { 201 }, value)
-            })
+            router.on(
+                method,
+                "/__probe/items/:id",
+                {
+                    ctx, params =>
+                        let value = JsonObject()
+                        value.put("id", JsonString(params["id"]))
+                        value.put("method", JsonString(ctx.request.method))
+                        jsonResponse(ctx, if (ctx.request.method == "GET") {
+                            200
+                        } else {
+                            201
+                        }, value)
+                }
+            )
         }
     }
-    let server = ServerBuilder().addr(config.host).port(config.port).distributor(router).build()
+    configure(router)
+    let server = ServerBuilder()
+        .addr(config.host)
+        .port(config.port)
+        .maxRequestBodySize(65536)
+        .distributor(router)
+        .build()
     server.logger.level = LogLevel.OFF
     return server
 }
@@ -133,4 +183,24 @@ func echoWebSocket(ctx: HttpContext): Unit {
     } finally {
         socket.closeConn()
     }
+}
+
+public func readLimited(stream: InputStream, limit!: Int64 = 65536): String {
+    let bytes = ArrayList<UInt8>()
+    let buffer = Array<UInt8>(4096, repeat: 0)
+    while (true) {
+        let n = stream.read(buffer)
+        if (n == 0) {
+            break
+        }
+        if (bytes.size + n > limit) {
+            throw IllegalArgumentException("Message too large")
+        }
+        bytes.add(all: buffer[0..n])
+    }
+    return String.fromUtf8(bytes.toArray())
+}
+
+public func readJsonBody(ctx: HttpContext): JsonObject {
+    JsonValue.fromStr(readLimited(ctx.request.body)).asObject()
 }
