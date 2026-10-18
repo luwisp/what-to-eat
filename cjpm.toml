@@ -1,0 +1,16 @@
+[package]
+  cjc-version = "1.2.0"
+  name = "huaiwei"
+  organization = ""
+  description = "Collaborative group dining recommendation service"
+  version = "1.0.0"
+  target-dir = ""
+  script-dir = ""
+  output-type = "executable"
+  compile-option = ""
+  override-compile-option = ""
+  link-option = "-lcrypto"
+  package-configuration = {}
+
+[dependencies]
+  stdx = { path = ".deps/stdx", output-type = "dynamic" }

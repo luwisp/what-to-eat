@@ -1,0 +1,14 @@
+target/
+build-script-cache/
+.deps/
+.superpowers/
+node_modules/
+frontend/node_modules/
+web/
+.env
+.env.local
+data/runtime/
+test-results/
+playwright-report/
+*.log
+docs/

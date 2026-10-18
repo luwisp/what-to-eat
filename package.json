@@ -1,0 +1,12 @@
+{
+  "name": "huaiwei-integration-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:platform": "node --test tests/platform.test.mjs",
+    "smoke:platform": "node scripts/smoke-platform.mjs"
+  },
+  "devDependencies": {
+    "ws": "8.22.0"
+  }
+}
