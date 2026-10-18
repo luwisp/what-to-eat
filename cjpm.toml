@@ -14,3 +14,4 @@
 
 [dependencies]
   stdx = { path = ".deps/stdx", output-type = "dynamic" }
+  sqlite4cj = { path = ".deps/sqlite4cj", output-type = "static" }

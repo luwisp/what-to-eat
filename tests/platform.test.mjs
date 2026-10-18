@@ -12,7 +12,7 @@ async function withServer(t, probe = true) {
   const port = reservation.address().port;
   await new Promise(resolve => reservation.close(resolve));
   let output = '';
-  const child = spawn('bash', ['scripts/cj.sh', 'exec', 'target/release/bin/main'], {
+  const child = spawn('bash', ['scripts/cj.sh', 'exec', 'target/release/bin/huaiwei'], {
     env: { ...process.env, HUAIWEI_PORT: String(port), HUAIWEI_ENABLE_PROBES: probe ? 'true' : 'false' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -74,4 +74,17 @@ test('test-only WebSocket probe is absent in normal server mode', async t => {
   const { origin } = await withServer(t, false);
   const response = await fetch(`${origin}/__probe/ws`);
   assert.equal(response.status, 404);
+});
+
+test('module routes separate methods and extract parameters without queries', async t => {
+  const { origin } = await withServer(t);
+  const read = await fetch(`${origin}/__probe/items/dish-1?extra=ignored`);
+  assert.equal(read.status, 200);
+  assert.deepEqual(await read.json(), { id: 'dish-1', method: 'GET' });
+  const update = await fetch(`${origin}/__probe/items/dish-1`, { method: 'POST' });
+  assert.equal(update.status, 201);
+  assert.deepEqual(await update.json(), { id: 'dish-1', method: 'POST' });
+  const wrongMethod = await fetch(`${origin}/__probe/items/dish-1`, { method: 'DELETE' });
+  assert.equal(wrongMethod.status, 405);
+  assert.equal((await wrongMethod.json()).error.code, 'METHOD_NOT_ALLOWED');
 });
