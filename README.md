@@ -15,3 +15,7 @@ bash scripts/check-platform.sh
 
 共享模型源在`scripts/generate-models.py`，生成`src/model/entities.cj`。模型字段改变后运行`python3 scripts/generate-models.py`。`src/model/contracts.cj`为目录/身份端口，`src/store/repository.cj`定义隔离快照与原子事务。`src/platform/http.cj`的`HttpRouter.on(method,path,handler)`支持`:id`路径参数和方法分发，`jsonResponse/jsonError`统一JSON。服务装配在`src/app/server.cj`。
 
+
+## 老乡鸡菜单导入
+
+运行 `python3 scripts/import-menu.py`，即可从 Excel 提取菜品和内嵌图片，写入 `data/runtime/huaiwei.sqlite`。支持重复导入和事务回滚，无需额外 Python 依赖。操作与现有 Repository 的衔接见 [导入说明](docs/dev/menu-import.md)。

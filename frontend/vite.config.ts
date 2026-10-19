@@ -12,6 +12,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": backend,
+      "/menu-images": backend,
       "/ws": { target: backend.replace("http", "ws"), ws: true },
     },
   },

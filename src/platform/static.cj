@@ -27,6 +27,25 @@ public func serveFrontend(root: String): HttpRequestHandler {
                         jsonError(ctx, 404, "NOT_FOUND", "资源不存在");
                         return
                     }
+                } else if (path.startsWith("/menu-images/")) {
+                    let filename = path[13..]
+                    if (filename.isEmpty() || filename.contains("/")) {
+                        jsonError(ctx, 404, "NOT_FOUND", "图片不存在")
+                        return
+                    }
+                    file = root + path
+                    if (path.endsWith(".jpg") || path.endsWith(".jpeg")) {
+                        contentType = "image/jpeg"
+                    } else if (path.endsWith(".png")) {
+                        contentType = "image/png"
+                    } else if (path.endsWith(".webp")) {
+                        contentType = "image/webp"
+                    } else if (path.endsWith(".gif")) {
+                        contentType = "image/gif"
+                    } else {
+                        jsonError(ctx, 404, "NOT_FOUND", "图片类型不支持")
+                        return
+                    }
                 } else if (path == "/admin" || path.startsWith("/admin/")) {
                     file = root + "/admin/index.html"
                 } else if (!(path == "/" || path == "/account" || path.startsWith("/r/") || path.startsWith("/s/"))) {
