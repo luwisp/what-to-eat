@@ -1,8 +1,38 @@
+<script setup lang="ts">
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+import AppIcon from "./shared/AppIcon.vue";
+const route = useRoute();
+const accountLink = computed(() =>
+  route.path === "/" || route.path === "/account"
+    ? "/account"
+    : `/account?returnTo=${encodeURIComponent(route.fullPath)}`,
+);
+const showTabs = computed(
+  () => route.path === "/" || route.path === "/account",
+);
+</script>
 <template>
-  <header class="app-header">
-    <RouterLink to="/" class="brand">一起吃<span>HUAIWEI</span></RouterLink
-    ><RouterLink to="/account">我的</RouterLink>
-  </header>
-  <main><RouterView /></main>
-  <footer>让每个人，都有喜欢的菜。</footer>
+  <div class="consumer-app" :class="{ 'has-tabs': showTabs }">
+    <header class="app-header">
+      <RouterLink to="/" class="brand"
+        ><span class="brand-symbol"><AppIcon name="dish" :size="22" /></span
+        >一起吃<span class="brand-caption"
+          >每个人，都有喜欢的菜</span
+        ></RouterLink
+      >
+      <RouterLink :to="accountLink" class="header-account"
+        ><AppIcon name="user" :size="19" />我的</RouterLink
+      >
+    </header>
+    <main><RouterView /></main>
+    <nav v-if="showTabs" class="bottom-tabs" aria-label="主导航">
+      <RouterLink to="/" exact-active-class="tab-active"
+        ><AppIcon name="home" />首页</RouterLink
+      >
+      <RouterLink to="/account" active-class="tab-active"
+        ><AppIcon name="user" />我的</RouterLink
+      >
+    </nav>
+  </div>
 </template>

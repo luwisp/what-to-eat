@@ -79,7 +79,7 @@ async function logout() {
 }
 </script>
 <template>
-  <section class="narrow">
+  <section class="narrow account-page">
     <button @click="router.push(safeReturnTo(route.query.returnTo))">
       ← 返回原页面
     </button>

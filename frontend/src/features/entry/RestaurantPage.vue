@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getMenu, createRoom, priceFen } from "../../shared/api";
+import AppIcon from "../../shared/AppIcon.vue";
 import type { MenuSnapshot } from "../../shared/contracts";
 const route = useRoute(),
   router = useRouter(),
@@ -45,14 +46,24 @@ async function create() {
 }
 </script>
 <template>
-  <section v-if="menu">
-    <p class="eyebrow">餐馆 · {{ menu.restaurant.restaurantCode }}</p>
-    <h1>{{ menu.restaurant.name }}</h1>
-    <p>{{ menu.restaurant.description }}</p>
-    <RouterLink class="button" :to="`/r/${route.params.code}/menu`"
-      >先看菜单，标记今天想吃</RouterLink
-    >
-    <form class="card" @submit.prevent="create">
+  <section v-if="menu" class="restaurant-page">
+    <div class="restaurant-heading card">
+      <span class="restaurant-avatar"><AppIcon name="store" :size="38" /></span>
+      <div>
+        <p class="eyebrow">餐馆 · {{ menu.restaurant.restaurantCode }}</p>
+        <h1>{{ menu.restaurant.name }}</h1>
+        <p class="hint">{{ menu.restaurant.description }}</p>
+      </div>
+    </div>
+    <RouterLink class="button browse-entry" :to="`/r/${route.params.code}/menu`"
+      ><span class="step-icon"><AppIcon name="dish" /></span
+      ><span
+        ><strong>先看菜单，标记今天想吃</strong
+        ><small>单点、套餐，都可以先看看</small></span
+      ><AppIcon name="arrow" :size="20"
+    /></RouterLink>
+    <form class="card create-room-card" @submit.prevent="create">
+      <p class="eyebrow">一起点菜</p>
       <h2>开一桌，一起决定</h2>
       <div class="row">
         <label

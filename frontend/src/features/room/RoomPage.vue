@@ -189,7 +189,7 @@ const mine = computed(
 );
 </script>
 <template>
-  <section>
+  <section class="room-page">
     <p class="eyebrow">同一桌，一起选 · {{ status }}</p>
     <div class="row between">
       <h1>聚餐局 {{ route.params.code }}</h1>
@@ -210,7 +210,7 @@ const mine = computed(
         复制链接</button
       ><img v-if="qr" :src="qr" alt="聚餐局邀请二维码" class="qr" />
     </div>
-    <nav class="chips">
+    <nav class="chips room-tabs">
       <RouterLink :to="`/s/${route.params.code}`">聚餐概览</RouterLink
       ><RouterLink :to="`/s/${route.params.code}/preferences`"
         >我的要求</RouterLink
@@ -218,9 +218,6 @@ const mine = computed(
         v-if="state"
         :to="`/r/${state.restaurantCode}/menu?room=${route.params.code}`"
         >看菜单 / 标记想吃</RouterLink
-      ><RouterLink
-        :to="`/account?returnTo=${encodeURIComponent(route.fullPath)}`"
-        >账号与默认设置</RouterLink
       >
     </nav>
     <p v-if="error" role="alert" class="error">{{ error }}</p>
@@ -229,7 +226,7 @@ const mine = computed(
       需求或菜单已变化，原方案已失效，请重新推荐。
     </p>
     <div v-if="editing" class="card">
-      <h2>先填自己的想法</h2>
+      <h2>我的用餐要求</h2>
       <p class="hint">
         {{
           state?.self?.submitted
