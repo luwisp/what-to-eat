@@ -1,0 +1,342 @@
+<div id="dining-flow-preview" class="viz-dotted-background">
+  <div class="df-stage">
+    <div class="df-preview-label">这一桌 · 可点击流程草图</div>
+    <section class="df-app" aria-label="多人聚餐点菜草图">
+      <header class="df-header">
+        <div><span class="df-brand">这一桌</span><span class="df-store">蜀香居</span></div>
+        <button type="button" class="df-link cursor-interaction" data-action="menu">菜单 · 选想吃</button>
+      </header>
+      <div id="df-content" aria-live="polite"></div>
+      <footer class="df-footnote">流程草图 · 菜单及互动均为演示</footer>
+    </section>
+  </div>
+</div>
+<style>
+  #dining-flow-preview { --df-paper: light-dark(#fffdf8,#242822); --df-text: light-dark(#28352d,#ecede4); --df-sub: light-dark(#697569,#b2baac); --df-line: light-dark(#e1e6db,#424a3d); --df-soft: light-dark(#f3f5ed,#30372b); --df-accent: light-dark(#355943,#b6d1aa); --df-on-accent: light-dark(#fffdf8,#22301d); --df-alert: light-dark(#87582e,#e1b987); --df-alert-bg: light-dark(#faf0e3,#3e3327); font-family: system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; color: var(--df-text); }
+  #dining-flow-preview * { box-sizing: border-box; }
+  #dining-flow-preview .df-stage { padding: 20px 10px 26px; }
+  #dining-flow-preview .df-preview-label { color: var(--df-sub); font-size: 12px; text-align: center; margin-bottom: 12px; }
+  #dining-flow-preview .df-app { width: min(100%,430px); margin-inline: auto; background: var(--df-paper); border: 1px solid var(--df-line); border-radius: 22px; overflow: clip; }
+  #dining-flow-preview .df-header { display: flex; gap: 10px; justify-content: space-between; align-items: center; padding: 20px 22px; border-bottom: 1px solid var(--df-line); }
+  #dining-flow-preview .df-brand { font-size: 19px; font-weight: 600; letter-spacing: 2px; }
+  #dining-flow-preview .df-store { color: var(--df-sub); margin-left: 12px; font-size: 13px; }
+  #dining-flow-preview button, #dining-flow-preview input, #dining-flow-preview select { font: inherit; }
+  #dining-flow-preview button { color: var(--df-text); }
+  #dining-flow-preview button:disabled { opacity: .4; cursor: not-allowed; }
+  #dining-flow-preview .df-link { background: transparent; border: 0; padding: 8px 0; color: var(--df-accent); font-size: 13px; text-align: left; }
+  #dining-flow-preview .df-body { padding: 23px 22px 20px; }
+  #dining-flow-preview .df-eyebrow { color: var(--df-sub); font-size: 12px; letter-spacing: 1px; margin: 0 0 10px; }
+  #dining-flow-preview h2 { font-size: 25px; line-height: 1.4; letter-spacing: -.5px; font-weight: 600; margin: 0 0 8px; color: var(--df-text); }
+  #dining-flow-preview h3 { font-size: 15px; font-weight: 600; margin: 0; color: var(--df-text); }
+  #dining-flow-preview p { margin: 0; }
+  #dining-flow-preview .df-desc { color: var(--df-sub); font-size: 13px; line-height: 1.7; margin-bottom: 24px; }
+  #dining-flow-preview .df-small { font-size: 12px; color: var(--df-sub); line-height: 1.65; }
+  #dining-flow-preview .df-primary, #dining-flow-preview .df-secondary { display: block; width: 100%; min-height: 46px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--df-line); font-size: 14px; font-weight: 500; text-align: center; }
+  #dining-flow-preview .df-primary { background: var(--df-accent); color: var(--df-on-accent); border-color: var(--df-accent); }
+  #dining-flow-preview .df-secondary { background: var(--df-paper); }
+  #dining-flow-preview .df-section { padding: 19px 0; border-top: 1px solid var(--df-line); }
+  #dining-flow-preview .df-section:first-of-type { border-top: 0; }
+  #dining-flow-preview .df-section-title { display: flex; gap: 10px; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  #dining-flow-preview .df-row { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+  #dining-flow-preview .df-stepper { display: flex; align-items: center; gap: 18px; }
+  #dining-flow-preview .df-stepper button { width: 36px; height: 36px; border: 1px solid var(--df-line); border-radius: 10px; background: var(--df-paper); font-size: 21px; }
+  #dining-flow-preview .df-count { font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  #dining-flow-preview .df-budget { display: flex; align-items: center; gap: 8px; }
+  #dining-flow-preview input, #dining-flow-preview select { min-width: 0; max-width: 100%; border: 1px solid var(--df-line); background: var(--df-paper); color: var(--df-text); border-radius: 9px; min-height: 40px; padding: 8px 10px; font-size: 16px; }
+  #dining-flow-preview .df-budget input { width: 104px; text-align: right; }
+  #dining-flow-preview .df-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  #dining-flow-preview .df-chip { border: 1px solid var(--df-line); border-radius: 9px; min-height: 36px; padding: 7px 11px; background: var(--df-paper); font-size: 13px; }
+  #dining-flow-preview .df-chip[aria-pressed="true"] { background: var(--df-soft); border-color: var(--df-accent); color: var(--df-accent); }
+  #dining-flow-preview details { font-size: 13px; }
+  #dining-flow-preview summary { color: var(--df-accent); padding: 9px 0; }
+  #dining-flow-preview details .df-chips { margin: 10px 0 3px; }
+  #dining-flow-preview .df-actions { margin-top: 20px; display: grid; gap: 9px; }
+  #dining-flow-preview .df-center { text-align: center; }
+  #dining-flow-preview .df-note { padding: 12px 14px; background: var(--df-soft); border-radius: 10px; font-size: 13px; line-height: 1.65; margin: 14px 0; }
+  #dining-flow-preview .df-alert { background: var(--df-alert-bg); color: var(--df-alert); }
+  #dining-flow-preview .df-member { padding: 14px 0; border-bottom: 1px solid var(--df-line); }
+  #dining-flow-preview .df-member-name { font-size: 14px; font-weight: 500; }
+  #dining-flow-preview .df-member p { margin-top: 5px; }
+  #dining-flow-preview .df-member .df-link { padding: 5px 0 5px 10px; white-space: nowrap; }
+  #dining-flow-preview .df-room-code { font-size: 36px; letter-spacing: 6px; padding: 22px 0; font-weight: 500; text-align: center; }
+  #dining-flow-preview .df-dish { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--df-line); align-items: flex-start; }
+  #dining-flow-preview .df-dish-mark { flex: 0 0 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: var(--df-soft); color: var(--df-accent); font-size: 15px; }
+  #dining-flow-preview .df-dish-content { flex: 1; min-width: 0; }
+  #dining-flow-preview .df-dish-name { display: flex; gap: 12px; justify-content: space-between; font-size: 14px; line-height: 1.5; }
+  #dining-flow-preview .df-dish-price { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #dining-flow-preview .df-dish .df-small { margin-top: 4px; }
+  #dining-flow-preview .df-dish details { margin-top: 3px; }
+  #dining-flow-preview .df-dish summary { font-size: 12px; padding: 4px 0; color: var(--df-sub); }
+  #dining-flow-preview .df-total { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 19px 0 5px; }
+  #dining-flow-preview .df-total strong { font-size: 25px; font-weight: 500; }
+  #dining-flow-preview .df-coverage { margin-top: 12px; padding: 10px 13px; background: var(--df-soft); border-radius: 10px; }
+  #dining-flow-preview .df-coverage p { margin-top: 6px; }
+  #dining-flow-preview .df-adjust { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--df-line); }
+  #dining-flow-preview .df-chat { display: flex; gap: 8px; margin-top: 12px; }
+  #dining-flow-preview .df-chat input { flex: 1; width: 80px; font-size: 14px; }
+  #dining-flow-preview .df-chat button { background: var(--df-accent); color: var(--df-on-accent); border: 0; border-radius: 9px; padding: 8px 12px; }
+  #dining-flow-preview .df-footnote { padding: 12px 22px 15px; color: var(--df-sub); font-size: 11px; text-align: center; }
+  #dining-flow-preview .df-space { margin-top: 14px; }
+  @media (max-width: 380px) { #dining-flow-preview .df-stage { padding-inline: 0; } #dining-flow-preview .df-body { padding-inline: 17px; } #dining-flow-preview .df-header { padding-inline: 17px; } #dining-flow-preview .df-row { flex-wrap: wrap; } #dining-flow-preview h2 { font-size: 23px; } }
+  @media (pointer: coarse) { #dining-flow-preview .df-chip, #dining-flow-preview .df-stepper button, #dining-flow-preview .df-link { min-height: 44px; } }
+</style>
+<style>
+#dining-flow-preview textarea { display: block; width: 100%; min-width: 0; resize: vertical; min-height: 90px; padding: 11px 12px; border: 1px solid var(--df-line); border-radius: 10px; background: var(--df-paper); color: var(--df-text); font: inherit; font-size: 16px; line-height: 1.6; }
+#dining-flow-preview .df-pick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 9px 0 5px; }
+#dining-flow-preview .df-pick-row button { min-height: 36px; }
+@media (pointer: coarse) { #dining-flow-preview .df-pick-row button { min-height: 44px; } }
+</style>
+<script>
+(() => {
+  const root = document.getElementById('dining-flow-preview');
+  const content = root.querySelector('#df-content');
+  const emptyPrefs = () => ({ avoid: [], allergy: [], diet: '不限', spice: 3, wants: [], wantedDishIds: [], note: '' });
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const defaults = { view: 'setup', roomCreated: false, people: 4, budget: '', members: [], personalDraft: emptyPrefs(), draft: emptyPrefs(), editing: null, kind: 'self', returnView: 'setup', selected: [], confirmed: false, category: '全部', message: '', draftNotice: '', showGuest: true, showMenuPreview: false, vegSoldOut: false };
+  const saved = window.openai && window.openai.widgetState && window.openai.widgetState.privateContent;
+  const state = Object.assign({}, defaults, saved && saved.version === 2 ? saved.state : {});
+  const dishes = [
+    { id: 'tofu', name: '菌菇豆腐', price: 32, category: '素菜', kind: 'plant', spice: 0, ingredients: ['菌菇','豆腐'], allergens: ['大豆'], tags: ['蔬菜'], mark: '素' },
+    { id: 'greens', name: '蒜蓉时蔬', price: 22, category: '素菜', kind: 'plant', spice: 0, ingredients: ['时蔬','蒜'], allergens: [], tags: ['蔬菜'], mark: '素' },
+    { id: 'egg', name: '番茄炒蛋', price: 28, category: '素菜', kind: 'egg', spice: 0, ingredients: ['番茄','鸡蛋'], allergens: ['鸡蛋'], tags: ['蔬菜'], mark: '素' },
+    { id: 'broccoli', name: '清炒西兰花', price: 26, category: '素菜', kind: 'plant', spice: 0, ingredients: ['西兰花'], allergens: [], tags: ['蔬菜'], mark: '素' },
+    { id: 'fish', name: '清蒸鲈鱼', price: 68, category: '荤菜', kind: 'meat', spice: 0, ingredients: ['鲈鱼','葱','姜'], allergens: ['鱼'], tags: ['鱼'], mark: '鱼' },
+    { id: 'spicyfish', name: '水煮鱼', price: 68, category: '荤菜', kind: 'meat', spice: 2, ingredients: ['鱼','辣椒'], allergens: ['鱼'], tags: ['鱼'], mark: '鱼' },
+    { id: 'chicken', name: '清蒸鸡', price: 48, category: '荤菜', kind: 'meat', spice: 0, ingredients: ['鸡肉','姜'], allergens: [], tags: ['鸡肉'], mark: '荤' },
+    { id: 'kungpao', name: '宫保鸡丁', price: 48, category: '荤菜', kind: 'meat', spice: 1, ingredients: ['鸡肉','花生','辣椒'], allergens: ['花生'], tags: ['鸡肉'], mark: '荤' },
+    { id: 'beef', name: '小炒牛肉', price: 58, category: '荤菜', kind: 'meat', spice: 2, ingredients: ['牛肉','辣椒'], allergens: [], tags: ['牛肉'], mark: '荤' },
+    { id: 'soup', name: '冬瓜海带汤', price: 22, category: '汤 / 主食', kind: 'plant', spice: 0, ingredients: ['冬瓜','海带'], allergens: [], tags: ['汤'], mark: '汤' },
+    { id: 'eggsoup', name: '番茄蛋花汤', price: 18, category: '汤 / 主食', kind: 'egg', spice: 0, ingredients: ['番茄','鸡蛋'], allergens: ['鸡蛋'], tags: ['汤'], mark: '汤' },
+    { id: 'rice', name: '米饭', price: 3, category: '汤 / 主食', kind: 'plant', spice: 0, ingredients: ['大米'], allergens: [], tags: ['主食'], mark: '饭' }
+  ];
+  const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+  const button = (label, action, cls, extra) => '<button type="button" class="' + (cls || 'df-link') + ' cursor-interaction" data-action="' + action + '" ' + (extra || '') + '>' + label + '</button>';
+  const chip = (label, group, value, chosen) => button(escape(label),'chip','df-chip','data-group="' + group + '" data-value="' + escape(value) + '" aria-pressed="' + chosen + '"');
+  const mine = () => state.members.find(member => member.kind === 'self');
+  const tableAllergies = () => Array.from(new Set(state.members.flatMap(member => member.prefs.allergy)));
+  const menu = () => dishes.filter(dish => !(state.vegSoldOut && dish.category === '素菜'));
+  const mainDish = dish => dish.category !== '汤 / 主食';
+  const dishNames = ids => ids.map(id => dishes.find(dish => dish.id === id)).filter(Boolean).map(dish => dish.name);
+  const compatible = (prefs, dish) => {
+    if (dish.spice > Number(prefs.spice)) return false;
+    if (prefs.diet === '蛋奶素' && dish.kind === 'meat') return false;
+    if (prefs.diet === '纯植物' && dish.kind !== 'plant') return false;
+    if (prefs.avoid.some(item => dish.ingredients.includes(item) || dish.allergens.includes(item))) return false;
+    return !prefs.allergy.some(item => dish.allergens.includes(item));
+  };
+  const available = () => menu().filter(dish => !tableAllergies().some(item => dish.allergens.includes(item)) && state.members.some(member => compatible(member.prefs,dish)));
+  const chosenDishes = () => state.selected.map(id => menu().find(dish => dish.id === id)).filter(Boolean);
+  const cost = dish => dish.price * (dish.id === 'rice' ? Number(state.people) : 1);
+  const totalCost = () => chosenDishes().reduce((sum,dish) => sum + cost(dish),0);
+  const coverage = member => chosenDishes().filter(dish => mainDish(dish) && compatible(member.prefs,dish));
+  function summary(prefs) {
+    const parts = [];
+    if (prefs.diet !== '不限') parts.push(prefs.diet === '蛋奶素' ? '不吃肉，可吃蛋奶' : '纯植物饮食');
+    if (Number(prefs.spice) === 0) parts.push('不吃辣');
+    if (Number(prefs.spice) === 1) parts.push('最多微辣');
+    if (prefs.avoid.length) parts.push('不吃' + prefs.avoid.join('、'));
+    if (prefs.allergy.length) parts.push(prefs.allergy.join('、') + '过敏');
+    if (prefs.wantedDishIds.length) parts.push('想吃' + dishNames(prefs.wantedDishIds).join('、'));
+    if (prefs.wants.length) parts.push('偏好' + prefs.wants.join('、'));
+    return parts.length ? parts.join(' · ') : '无特殊要求';
+  }
+  function persist() {
+    if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({ modelContent: { currentStep: state.view, people: state.people, submitted: state.members.length, myWantedDishes: dishNames((mine() ? mine().prefs : state.personalDraft).wantedDishIds), invitationAvailableBeforeFilling: true }, privateContent: { version: 2, state: state } }).catch(() => {});
+  }
+  function invalidate() { state.selected = []; state.confirmed = false; state.message = ''; }
+  function editPrefs(kind, member) {
+    state.kind = kind; state.editing = member ? member.id : null;
+    state.draft = clone(member ? member.prefs : kind === 'self' ? state.personalDraft : emptyPrefs());
+    state.draftNotice = ''; state.view = 'prefs';
+  }
+  function keepDraft() {
+    if (state.kind === 'self') state.personalDraft = clone(state.draft);
+  }
+  function openMenu() {
+    state.returnView = state.view;
+    if (state.view !== 'prefs') {
+      state.kind = 'self'; state.editing = mine() ? mine().id : null;
+      state.draft = clone(mine() ? mine().prefs : state.personalDraft);
+    }
+    state.category = '全部'; state.view = 'menu';
+  }
+  function syncMenuSelection() {
+    if (state.returnView === 'prefs') return;
+    state.personalDraft = clone(state.draft);
+    if (mine()) { mine().prefs = clone(state.draft); invalidate(); }
+  }
+  function leaveMenu(confirm) {
+    keepDraft();
+    if (state.returnView === 'prefs') state.view = 'prefs';
+    else if (confirm && state.roomCreated && !mine()) state.view = 'prefs';
+    else state.view = state.returnView === 'result' ? 'lobby' : state.returnView;
+  }
+  function reconcileDraft() {
+    const removed = state.draft.wantedDishIds.filter(id => { const dish = dishes.find(d => d.id === id); return dish && !compatible(state.draft,dish); });
+    state.draft.wantedDishIds = state.draft.wantedDishIds.filter(id => !removed.includes(id));
+    state.draftNotice = removed.length ? '已取消与当前饮食要求冲突的想吃菜品：' + dishNames(removed).join('、') + '。' : '';
+    if (state.draft.diet !== '不限') state.draft.wants = state.draft.wants.filter(item => item !== '鱼' && item !== '鸡肉');
+    if (state.draft.allergy.includes('鱼')) state.draft.wants = state.draft.wants.filter(item => item !== '鱼');
+    keepDraft();
+  }
+  function savePrefs() {
+    const existing = state.members.find(member => member.id === state.editing);
+    if (existing) existing.prefs = clone(state.draft);
+    else {
+      const index = state.members.filter(member => member.kind === state.kind).length + 1;
+      state.members.push({ id: state.kind + '-' + index, kind: state.kind, label: state.kind === 'self' ? '我' : state.kind === 'guest' ? '未扫码同行人 ' + index : '同行人 ' + index, prefs: clone(state.draft) });
+    }
+    keepDraft(); state.people = Math.max(Number(state.people),state.members.length); invalidate(); state.view = 'lobby';
+  }
+  function generate() {
+    if (!state.members.length) return;
+    const candidates = available(); const picks = [];
+    const score = dish => state.members.reduce((sum,member) => sum + (compatible(member.prefs,dish) ? 1 + member.prefs.wants.filter(want => dish.tags.includes(want)).length * 2 + (member.prefs.wantedDishIds.includes(dish.id) ? 6 : 0) : 0),0);
+    const sorted = candidates.slice().sort((a,b) => score(b) - score(a) || a.price - b.price);
+    const memberOrder = state.members.slice().sort((a,b) => candidates.filter(d => mainDish(d) && compatible(a.prefs,d)).length - candidates.filter(d => mainDish(d) && compatible(b.prefs,d)).length);
+    memberOrder.forEach(member => {
+      while (picks.filter(d => mainDish(d) && compatible(member.prefs,d)).length < 2) {
+        const next = sorted.find(d => mainDish(d) && compatible(member.prefs,d) && !picks.includes(d));
+        if (!next) break; picks.push(next);
+      }
+    });
+    const target = Math.min(Number(state.people) + 1,8);
+    sorted.filter(d => state.members.some(m => m.prefs.wantedDishIds.includes(d.id))).forEach(dish => { if (!picks.includes(dish) && picks.length < target) picks.push(dish); });
+    const soup = sorted.find(d => d.tags.includes('汤'));
+    if (soup && !picks.some(d => d.tags.includes('汤'))) picks.push(soup);
+    sorted.filter(mainDish).forEach(dish => {
+      const protein = dish.tags.find(tag => ['鱼','鸡肉','牛肉'].includes(tag));
+      if (picks.filter(mainDish).length < Math.max(2,target - 1) && !picks.includes(dish) && !(protein && picks.some(pick => pick.tags.includes(protein)))) picks.push(dish);
+    });
+    const rice = candidates.find(d => d.id === 'rice'); if (rice && !picks.includes(rice)) picks.push(rice);
+    state.selected = picks.map(d => d.id);
+    if (state.budget !== '' && Number(state.budget) > 0) while (totalCost() > Number(state.budget) * Number(state.people)) {
+      const removable = chosenDishes().filter(mainDish).sort((a,b) => score(a) - score(b) || cost(b) - cost(a)).find(dish => state.members.every(member => coverage(member).length - (compatible(member.prefs,dish) ? 1 : 0) >= 2));
+      if (!removable) break; state.selected = state.selected.filter(id => id !== removable.id);
+    }
+    state.view = 'result'; state.confirmed = false; state.message = '';
+  }
+  function dishRow(dish,detail,pickable) {
+    const spice = ['不辣','微辣','中辣'][dish.spice];
+    const type = dish.kind === 'plant' ? '植物食材' : dish.kind === 'egg' ? '含蛋' : '荤菜';
+    const picked = state.draft.wantedDishIds.includes(dish.id);
+    const fits = compatible(state.draft,dish);
+    const pickAction = pickable ? '<div class="df-pick-row">' + button(picked ? '已想吃 · 取消' : '想吃这道','pick-dish','df-chip','data-id="' + dish.id + '" aria-label="' + (picked ? '取消想吃' : '想吃') + dish.name + '" aria-pressed="' + picked + '" ' + (!fits ? 'disabled' : '')) + (!fits ? '<span class="df-small">与当前饮食要求冲突</span>' : '') + '</div>' : '';
+    const requested = !detail && state.members.some(member => member.prefs.wantedDishIds.includes(dish.id));
+    return '<div class="df-dish"><div class="df-dish-mark" aria-hidden="true">' + dish.mark + '</div><div class="df-dish-content"><div class="df-dish-name"><span>' + dish.name + (dish.id === 'rice' && !detail ? ' × ' + state.people : '') + '</span><span class="df-dish-price">¥' + (detail ? dish.price : cost(dish)) + '</span></div><p class="df-small">' + spice + ' · ' + type + (requested ? ' · 有人想吃' : '') + '</p>' + pickAction + (detail ? '<details><summary>食材信息</summary><p class="df-small">' + dish.ingredients.join('、') + '<br>已标注过敏原：' + (dish.allergens.join('、') || '本示例未标注') + '</p></details>' : '') + '</div></div>';
+  }
+  function setupView(settings) {
+    return '<div class="df-body"><p class="df-eyebrow">' + (settings ? '这桌的信息' : '川菜 · 家常菜') + '</p><h2>' + (settings ? '调整人数和预算' : '这一桌，想吃点什么？') + '</h2><p class="df-desc">' + (settings ? '人数决定菜量，已经填写的需求会保留。' : '先建一桌，邀请同行人一起选。') + '</p><div class="df-section"><div class="df-row"><h3>今天几个人？</h3><div class="df-stepper">' + button('−','people-down','','aria-label="减少人数"') + '<span class="df-count">' + state.people + '</span>' + button('+','people-up','','aria-label="增加人数"') + '</div></div></div><div class="df-section"><div class="df-row"><label for="df-budget"><h3>人均预算 <span class="df-small">可选</span></h3></label><div class="df-budget"><input id="df-budget" type="number" min="1" max="9999" placeholder="不限" value="' + escape(state.budget) + '"><span class="df-small">元</span></div></div></div>' + (state.personalDraft.wantedDishIds.length && !settings ? '<p class="df-note">已记下想吃：' + escape(dishNames(state.personalDraft.wantedDishIds).join('、')) + '</p>' : '') + (state.showMenuPreview && !settings ? '<div class="df-section"><div class="df-section-title"><h3>店里的几道菜</h3>' + button('看菜单，挑想吃的 →','menu') + '</div>' + menu().slice(0,3).map(d => dishRow(d,true,false)).join('') + '</div>' : '') + '<div class="df-actions">' + button(settings ? '保存，返回这桌' : '建局并邀请同行人',settings ? 'save-settings' : 'start','df-primary') + (settings ? button('取消','cancel-settings','df-secondary') : '') + '</div></div>';
+  }
+  function prefsView() {
+    const p = state.draft; const guest = state.kind === 'guest';
+    const wanted = p.wantedDishIds.length ? '<div class="df-chips df-space">' + p.wantedDishIds.map(id => button(escape(dishNames([id])[0]) + ' ×','remove-wanted','df-chip','data-id="' + id + '" aria-label="移除想吃' + escape(dishNames([id])[0]) + '"')).join('') + '</div>' : '';
+    return '<div class="df-body">' + button('← 返回这桌','back-prefs') + '<p class="df-eyebrow df-space">' + (guest ? '可选补充' : state.kind === 'joined' ? '同行人的填写界面' : '我的饮食要求') + '</p><h2>' + (guest ? '同行人有什么要求？' : '你想吃什么？') + '</h2><p class="df-desc">从菜单挑几道想吃的，再补充饮食要求。</p>' + (state.draftNotice ? '<p class="df-note df-alert" role="alert">' + escape(state.draftNotice) + '</p>' : '') + '<div class="df-section"><div class="df-section-title"><h3>今天想吃</h3><span class="df-small">可跳过</span></div>' + button('看菜单，挑具体的菜 →','menu','df-secondary') + wanted + '<div class="df-chips df-space">' + ['鱼','鸡肉','蔬菜','汤'].map(item => chip(item,'wants',item,p.wants.includes(item))).join('') + '</div></div><div class="df-section"><div class="df-section-title"><h3>明确不吃的</h3><span class="df-small">可多选</span></div><div class="df-chips">' + ['羊肉','牛肉','香菜','内脏','虾蟹'].map(item => chip(item,'avoid',item,p.avoid.includes(item))).join('') + '</div><div class="df-chips df-space">' + chip('不吃肉，可吃蛋奶','diet','蛋奶素',p.diet === '蛋奶素') + chip('纯植物饮食','diet','纯植物',p.diet === '纯植物') + '</div></div><div class="df-section"><h3>能接受多辣？</h3><div class="df-chips df-space">' + [['不辣',0],['最多微辣',1],['都可以',3]].map(item => chip(item[0],'spice',item[1],Number(p.spice) === item[1])).join('') + '</div></div><div class="df-section"><details ' + (p.allergy.length ? 'open' : '') + '><summary>有食物过敏？' + (p.allergy.length ? ' 已选 ' + p.allergy.join('、') : '点这里补充') + '</summary><div class="df-chips">' + ['花生','虾蟹','鱼','鸡蛋','奶','大豆'].map(item => chip(item,'allergy',item,p.allergy.includes(item))).join('') + '</div><p class="df-small df-space">过敏信息会单独提示餐厅确认。</p></details></div><div class="df-section"><div class="df-section-title"><label for="df-note"><h3>还有想说的？</h3></label><span class="df-small">可选</span></div><textarea id="df-note" rows="3" maxlength="200" aria-label="文字补充" placeholder="比如：今天想吃清淡点，鱼只点一道就好">' + escape(p.note) + '</textarea><p class="df-small df-space">过敏和明确不吃的内容，也请在对应选项中确认。</p></div><div class="df-actions">' + button(state.editing ? '保存修改' : guest ? '补充好了' : '保存我的需求','save-prefs','df-primary') + '</div></div>';
+  }
+  function lobbyView() {
+    const remaining = Math.max(0,Number(state.people) - state.members.length);
+    const self = mine();
+    const members = state.members.filter(member => member.kind !== 'self').map(member => '<div class="df-member"><div class="df-row"><span class="df-member-name">' + member.label + '</span>' + (member.kind === 'guest' ? button('修改','edit-member','df-link','data-id="' + member.id + '"') : '<span class="df-small">已填写</span>') + '</div><p class="df-small">' + escape(summary(member.prefs)) + '</p>' + (member.prefs.note ? '<p class="df-small">补充：' + escape(member.prefs.note) + '</p>' : '') + '</div>').join('');
+    const pending = state.personalDraft.wantedDishIds.length ? '已选想吃：' + dishNames(state.personalDraft.wantedDishIds).join('、') + ' · 饮食要求待确认' : '还没填写，邀请同行人后也可以再填。';
+    return '<div class="df-body"><div class="df-section-title"><p class="df-eyebrow">进局码 A3F9</p>' + button('人数 / 预算','settings') + '</div><h2>这桌，一起决定</h2><p class="df-desc">' + state.people + ' 人 · ' + (state.budget ? '人均预算 ¥' + state.budget : '预算不限') + '</p>' + button('邀请同行人填写','invite','df-secondary') + '<div class="df-member df-space"><div class="df-row"><h3>我的饮食要求</h3>' + button(self ? '修改' : '去填写','edit-self') + '</div><p class="df-small">' + escape(self ? summary(self.prefs) : pending) + '</p>' + (self && self.prefs.note ? '<p class="df-small">补充：' + escape(self.prefs.note) + '</p>' : '') + '</div><div class="df-section df-space"><h3>' + state.members.length + ' 人已填写' + (remaining ? ' · 还有 ' + remaining + ' 人未填' : '') + '</h3>' + members + (state.showGuest && remaining ? '<div class="df-space">' + button('有人不方便用手机？补充同行人要求 →','add-guest') + '</div>' : '') + '</div><div class="df-actions">' + button(state.members.length ? remaining ? '按已填需求看看推荐' : '看看这桌推荐' : '至少 1 人填写后可推荐','generate','df-primary',state.members.length ? '' : 'disabled') + '<p class="df-small df-center">邀请和填写可以同时进行，不必等所有人填完。</p></div></div>';
+  }
+  function menuView() {
+    const fromPrefs = state.returnView === 'prefs';
+    const finishLabel = fromPrefs ? '选好了，返回填写' : !state.roomCreated ? '记下想吃的菜，返回建局' : !mine() ? '选好了，确认我的饮食要求' : '选好了，返回这桌';
+    return '<div class="df-body">' + button('← 返回刚才的步骤','back-menu') + '<h2 class="df-space">从菜单挑想吃的</h2><p class="df-desc">先标记想吃的菜，推荐时再结合全桌需求搭配。</p><div class="df-chips">' + ['全部','荤菜','素菜','汤 / 主食'].map(item => chip(item,'category',item,state.category === item)).join('') + '</div><p class="df-small df-space">已选 ' + state.draft.wantedDishIds.length + ' 道想吃的菜</p>' + menu().filter(d => state.category === '全部' || d.category === state.category).map(d => dishRow(d,true,true)).join('') + '<div class="df-actions">' + button(finishLabel,'finish-menu','df-primary') + '</div></div>';
+  }
+  function resultView() {
+    const chosen = chosenDishes(); const self = mine();
+    const limited = state.members.filter(member => coverage(member).length < 2);
+    const uncovered = state.members.filter(member => coverage(member).length === 0);
+    const allergies = tableAllergies();
+    const remaining = Math.max(0,Number(state.people) - state.members.length);
+    const overBudget = state.budget && totalCost() > Number(state.budget) * Number(state.people);
+    const includedWishes = self ? dishNames(self.prefs.wantedDishIds.filter(id => state.selected.includes(id))) : [];
+    const omittedWishes = self ? dishNames(self.prefs.wantedDishIds.filter(id => !state.selected.includes(id))) : [];
+    const notes = state.members.filter(member => member.prefs.note);
+    const warnings = (limited.length ? '<p class="df-note df-alert">' + limited.map(member => escape(member.label) + (coverage(member).length ? '目前只有 1 道合适的菜' : '暂时没有合适的非主食菜')).join('；') + '。请先确认餐厅有无其他选择。</p>' : '') + (allergies.length ? '<p class="df-note df-alert">' + allergies.join('、') + '过敏：相关食材已避开，制作方式仍需餐厅确认。</p>' : '') + (overBudget ? '<p class="df-note df-alert">当前超预算 ¥' + (totalCost() - Number(state.budget) * Number(state.people)) + '，可以调整数量或预算。</p>' : '');
+    const heading = state.confirmed ? allergies.length ? '组合已保存，待餐厅确认' : remaining ? '这份组合，先保留' : '这桌菜，定好了' : '先看看这一桌';
+    return '<div class="df-body"><p class="df-eyebrow">蜀香居 · ' + state.people + ' 人</p><div class="df-section-title"><h2>' + heading + '</h2>' + button(state.confirmed ? '重新调整' : '改需求','return-lobby') + '</div><p class="df-desc">按已填写的 ' + state.members.length + ' 人安排' + (remaining ? '，还有 ' + remaining + ' 人未填需求。' : '。') + '</p>' + warnings + (includedWishes.length ? '<p class="df-note">选入了你想吃的：' + includedWishes.join('、') + '</p>' : '') + chosen.map(d => dishRow(d,false,false)).join('') + '<div class="df-total"><span class="df-small">' + chosen.length + ' 项 · 人均约 ¥' + Math.ceil(totalCost() / Number(state.people)) + '</span><strong>¥' + totalCost() + '</strong></div>' + (self ? '<div class="df-coverage"><h3>' + (self.prefs.allergy.length ? '你的配料匹配菜品 · 制作待确认' : '适合你的菜') + '</h3><p class="df-small">' + (coverage(self).map(d => d.name).join('、') || '暂无合适的非主食菜') + '</p><details class="df-space"><summary>看看其他成员的选择</summary>' + state.members.filter(m => m.kind !== 'self').map(m => '<p class="df-small">' + m.label + '：' + (coverage(m).map(d => d.name).join('、') || '暂无合适的非主食菜') + (m.prefs.allergy.length ? '（制作待确认）' : '') + '</p>').join('') + '</details></div>' : '<p class="df-note">你尚未填写饮食要求，这份组合先按其他成员的需求安排。</p>') + (omittedWishes.length ? '<p class="df-small df-space">你想吃的' + omittedWishes.join('、') + '未选入本次组合，可以继续调整。</p>' : '') + (notes.length ? '<details class="df-space"><summary>查看文字补充 · 待确认</summary>' + notes.map(m => '<p class="df-small">' + m.label + '：' + escape(m.prefs.note) + '</p>').join('') + '</details>' : '') + (state.message ? '<p class="df-note">' + escape(state.message) + '</p>' : '') + (!state.confirmed ? '<div class="df-adjust"><h3>想调整一下？</h3><div class="df-chips df-space">' + button('再加个汤','add-soup','df-chip') + button('少一道菜','fewer','df-chip') + button('换一道鱼','swap-fish','df-chip') + '</div><form class="df-chat" id="df-chat-form"><input name="adjustment" aria-label="调整要求" placeholder="也可以直接说说想怎么改"><button type="submit" class="cursor-interaction">调整</button></form></div><div class="df-actions">' + button(uncovered.length ? '还有成员没有合适的菜' : allergies.length ? '先保存，待餐厅确认' : remaining ? '先保留这份组合' : '就选这桌菜','confirm','df-primary',uncovered.length ? 'disabled' : '') + '</div>' : '<p class="df-note">组合已保留，可以展示给同行人或服务员。</p>') + '</div>';
+  }
+  function inviteView() {
+    return '<div class="df-body">' + button('← 返回这桌','return-lobby') + '<h2 class="df-space">先邀请，边填边等</h2><p class="df-desc">分享进局链接或进局码，大家分别填写，顺序由你们决定。</p><p class="df-small df-center">进局码</p><div class="df-room-code">A3F9</div><div class="df-actions">' + button('体验：同行人打开链接后填写','try-join','df-primary') + button('返回这桌，填写我的需求','invite-to-self','df-secondary') + '</div></div>';
+  }
+  function render() {
+    content.innerHTML = state.view === 'setup' ? setupView(false) : state.view === 'settings' ? setupView(true) : state.view === 'prefs' ? prefsView() : state.view === 'menu' ? menuView() : state.view === 'invite' ? inviteView() : state.view === 'result' ? resultView() : lobbyView();
+    root.querySelector('.df-header [data-action="menu"]').hidden = state.view === 'menu';
+  }
+  function adjust(action) {
+    const candidates = available();
+    if (action === 'add-soup') {
+      const soup = candidates.find(d => d.tags.includes('汤') && !state.selected.includes(d.id));
+      if (soup) { state.selected.push(soup.id); state.message = '加上了' + soup.name + '，总价已更新。'; }
+      else state.message = '没有其他合适的汤，先保留当前组合。';
+    } else if (action === 'fewer') {
+      const dish = chosenDishes().filter(mainDish).slice().reverse().find(d => state.members.every(m => coverage(m).length - (compatible(m.prefs,d) ? 1 : 0) >= 2));
+      if (dish) { state.selected = state.selected.filter(id => id !== dish.id); state.message = '去掉了' + dish.name + '，仍保留每位已填写成员的可选菜。'; }
+      else state.message = '再减少会让部分成员选择不足，先保留当前组合。';
+    } else if (action === 'swap-fish') {
+      const current = chosenDishes().find(d => d.tags.includes('鱼'));
+      const next = candidates.find(d => d.tags.includes('鱼') && !state.selected.includes(d.id) && state.members.every(m => !current || !compatible(m.prefs,current) || compatible(m.prefs,d)));
+      if (next) { state.selected = current ? state.selected.map(id => id === current.id ? next.id : id) : state.selected.concat(next.id); state.message = '已调整为' + next.name + '。'; }
+      else state.message = '暂时没有其他合适的鱼，保留现有选择。';
+    }
+    state.confirmed = false;
+  }
+  root.addEventListener('click',event => {
+    const target = event.target.closest('[data-action]');
+    if (!target || !root.contains(target) || target.disabled) return;
+    const action = target.dataset.action;
+    if (action === 'menu') openMenu();
+    else if (action === 'back-menu') leaveMenu(false);
+    else if (action === 'finish-menu') leaveMenu(true);
+    else if (action === 'pick-dish') {
+      const id = target.dataset.id; const list = state.draft.wantedDishIds;
+      state.draft.wantedDishIds = list.includes(id) ? list.filter(item => item !== id) : list.concat(id);
+      syncMenuSelection();
+    }
+    else if (action === 'remove-wanted') { state.draft.wantedDishIds = state.draft.wantedDishIds.filter(id => id !== target.dataset.id); keepDraft(); }
+    else if (action === 'people-down') state.people = Math.max(1,state.members.length,Number(state.people) - 1);
+    else if (action === 'people-up') state.people = Math.min(12,Number(state.people) + 1);
+    else if (action === 'start') { state.roomCreated = true; state.view = 'lobby'; }
+    else if (action === 'edit-self' || action === 'invite-to-self') editPrefs('self',mine());
+    else if (action === 'invite') state.view = 'invite';
+    else if (action === 'try-join') editPrefs('joined');
+    else if (action === 'add-guest') editPrefs('guest');
+    else if (action === 'edit-member') { const member = state.members.find(m => m.id === target.dataset.id); if (member) editPrefs(member.kind,member); }
+    else if (action === 'back-prefs') { keepDraft(); state.view = 'lobby'; }
+    else if (action === 'save-prefs') savePrefs();
+    else if (action === 'settings') { state.settingsBefore = { people: state.people, budget: state.budget }; state.view = 'settings'; }
+    else if (action === 'save-settings') { invalidate(); state.view = 'lobby'; }
+    else if (action === 'cancel-settings') { Object.assign(state,state.settingsBefore || {}); state.view = 'lobby'; }
+    else if (action === 'return-lobby') { state.view = 'lobby'; state.confirmed = false; }
+    else if (action === 'generate') generate();
+    else if (action === 'confirm') state.confirmed = true;
+    else if (['add-soup','fewer','swap-fish'].includes(action)) adjust(action);
+    else if (action === 'chip') {
+      const group = target.dataset.group; const value = target.dataset.value;
+      if (group === 'category') state.category = value;
+      else if (group === 'spice') state.draft.spice = Number(value);
+      else if (group === 'diet') state.draft.diet = state.draft.diet === value ? '不限' : value;
+      else { const list = state.draft[group]; state.draft[group] = list.includes(value) ? list.filter(item => item !== value) : list.concat(value); }
+      if (group !== 'category') reconcileDraft();
+    }
+    render(); persist();
+  });
+  root.addEventListener('input',event => {
+    if (event.target.id === 'df-budget') { const value = event.target.value; state.budget = value !== '' && Number(value) > 0 ? Math.min(9999,Number(value)) : ''; persist(); }
+    else if (event.target.id === 'df-note') { state.draft.note = event.target.value.slice(0,200); keepDraft(); persist(); }
+  });
+  root.addEventListener('submit',event => {
+    if (event.target.id !== 'df-chat-form') return;
+    event.preventDefault(); const text = new FormData(event.target).get('adjustment') || '';
+    if (/汤/.test(text)) adjust('add-soup');
+    else if (/少|减|去掉/.test(text)) adjust('fewer');
+    else if (/鱼/.test(text)) adjust('swap-fish');
+    else state.message = '已记下调整想法：' + text + '。本草图先保留当前组合。';
+    render(); persist();
+  });
+  render();
+})();
+</script>
