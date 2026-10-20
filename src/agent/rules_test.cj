@@ -55,6 +55,7 @@ class RulesTests {
         @Expect(evaluateMemberFit(dish("f", ["蛤蜊"]), Preferences(allergens: ["贝类"]), associations).status, "conflict")
         @Expect(evaluateMemberFit(dish("f", ["花生油"]), Preferences(allergens: ["花生"]), associations).status, "conflict")
         @Expect(evaluateMemberFit(dish("f", ["猪骨汤底"]), Preferences(dietMode: "ovoLacto"), associations).status, "conflict")
+        @Expect(evaluateMemberFit(dish("f", ["鸡腿", "鸡翅根"]), Preferences(dietMode: "ovoLacto"), associations).status, "conflict")
         @Expect(evaluateMemberFit(dish("f", ["鸡蛋", "奶酪"]), Preferences(dietMode: "ovoLacto"), associations).status, "fit")
         @Expect(evaluateMemberFit(dish("f", ["鸡蛋", "奶酪"]), Preferences(dietMode: "plant"), associations).status, "conflict")
     }

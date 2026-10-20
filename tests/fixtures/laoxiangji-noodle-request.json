@@ -1,0 +1,66 @@
+{
+  "algorithm": "v3",
+  "menuVersion": 1,
+  "people": 2,
+  "budgetPerPersonFen": 2500,
+  "maxExpansions": 6000,
+  "width": 16,
+  "unknownDishIds": [],
+  "unavailableDishIds": [],
+  "members": [
+    {
+      "id": "m1",
+      "nickname": "发起人",
+      "submitted": true,
+      "preferences": {
+        "allergens": [],
+        "avoidFoods": [],
+        "dietMode": "ovoLacto",
+        "maxSpiceLevel": 2,
+        "tastePreferences": [
+          "咸香"
+        ],
+        "wantedDishIds": [],
+        "wantedSetMealIds": [],
+        "note": ""
+      },
+      "meal": {
+        "appetite": "normal",
+        "stapleMode": "default",
+        "stapleDishId": null,
+        "confirmSingleServing": false,
+        "wantedIngredients": [],
+        "wantedExtraIds": [
+          "dish-3779b166473b1675a169aa3f"
+        ],
+        "wantedSpiceLevel": 2
+      }
+    },
+    {
+      "id": "m2",
+      "nickname": "同行人 A",
+      "submitted": true,
+      "preferences": {
+        "allergens": [],
+        "avoidFoods": [
+          "猪肉"
+        ],
+        "dietMode": "none",
+        "maxSpiceLevel": 3,
+        "tastePreferences": [],
+        "wantedDishIds": [],
+        "wantedSetMealIds": [],
+        "note": ""
+      },
+      "meal": {
+        "appetite": "extraLarge",
+        "stapleMode": "noodles",
+        "stapleDishId": null,
+        "confirmSingleServing": false,
+        "wantedIngredients": [],
+        "wantedExtraIds": [],
+        "wantedSpiceLevel": 3
+      }
+    }
+  ]
+}

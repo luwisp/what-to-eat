@@ -10,7 +10,7 @@ let builtInIngredientGroups: Array<IngredientAssociation> = [
         IngredientAssociation(ingredient: "鸡蛋", related: ["蛋清", "蛋黄", "蛋液", "鸡蛋"]),
         IngredientAssociation(ingredient: "奶", related: ["牛奶", "羊奶", "奶酪", "芝士", "黄油", "乳清", "奶粉", "酸奶"]),
         IngredientAssociation(ingredient: "大豆", related: ["黄豆", "豆腐", "豆浆", "豆皮", "腐竹", "味噌", "酱油"]),
-        IngredientAssociation(ingredient: "肉类", related: ["猪", "牛肉", "牛骨", "鸡肉", "鸡骨", "鸡汤", "鸡精", "鸡油", "鸡肝", "鸭肉", "鸭骨", "鸭血", "鹅肉", "羊肉", "羊骨", "兔肉", "火腿", "培根", "肉末", "肉馅", "猪油", "牛油", "明胶"]),
+        IngredientAssociation(ingredient: "肉类", related: ["猪", "牛肉", "牛骨", "鸡肉", "鸡腿", "鸡大腿", "鸡翅", "鸡翅根", "鸡骨", "鸡汤", "鸡精", "鸡油", "鸡肝", "鸭肉", "鸭骨", "鸭血", "鹅肉", "羊肉", "羊骨", "兔肉", "火腿", "培根", "肉末", "肉馅", "猪油", "牛油", "明胶"]),
         IngredientAssociation(ingredient: "内脏", related: ["猪肝", "鸡肝", "鸭肝", "牛肚", "猪肚", "猪心", "腰子", "肥肠", "鸡胗", "鸭胗"]),
         IngredientAssociation(ingredient: "蛋类", related: ["鸡蛋", "鸭蛋", "鹅蛋", "鹌鹑蛋", "蛋清", "蛋黄", "蛋液", "鱼卵"]),
         IngredientAssociation(ingredient: "蔬菜", related: ["白菜", "青椒", "土豆", "菠菜", "西兰花", "萝卜", "黄瓜", "番茄", "茄子", "豆角", "菜花", "生菜", "冬瓜", "南瓜", "蘑菇", "木耳"]),

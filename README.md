@@ -19,3 +19,7 @@ bash scripts/check-platform.sh
 ## 老乡鸡菜单导入
 
 运行 `python3 scripts/import-menu.py`，即可从 Excel 提取菜品和内嵌图片，写入 `data/runtime/huaiwei.sqlite`。支持重复导入和事务回滚，无需额外 Python 依赖。操作与现有 Repository 的衔接见 [导入说明](docs/dev/menu-import.md)。
+
+## 算法交互调试
+
+配置仓颉 SDK 后运行 `bash scripts/algorithm-dev.sh`，打开本机 `http://127.0.0.1:8091`。使用老乡鸡真实 SQLite 菜单运行 B2 v3 选择器，支持饭量、独立主食、动态愿望、预算档位和个人适配；保留原算法对照及 unknown/下架模拟。见 [算法实验室说明](dev/algorithm/README.md)。
