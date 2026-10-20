@@ -63,6 +63,7 @@ export const saveDefaults = (settings: UserDefaultSettings) =>
     "PUT",
     Object.fromEntries(
       [
+        "appetite",
         "allergens",
         "avoidFoods",
         "dietMode",

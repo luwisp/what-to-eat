@@ -54,6 +54,7 @@ test("optional account defaults save only long-term fields and return locally", 
   expect(saved).toBeDefined();
   expect(Object.keys(saved!).sort()).toEqual(
     [
+      "appetite",
       "allergens",
       "avoidFoods",
       "dietMode",

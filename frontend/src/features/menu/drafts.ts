@@ -1,6 +1,12 @@
 import type { Preferences, UserDefaultSettings } from "../../shared/contracts";
 export type DraftKey = `restaurant:${string}` | `room:${string}:${string}`;
 export const emptyPreferences = (): Preferences => ({
+  appetite: "normal",
+  stapleMode: "default",
+  stapleDishId: null,
+  wantedIngredients: [],
+  wantedExtras: [],
+  wantedSpiceLevel: null,
   allergens: [],
   avoidFoods: [],
   dietMode: "none",
@@ -21,6 +27,7 @@ function clean(value: unknown): Preferences {
     "tastePreferences",
     "wantedDishIds",
     "wantedSetMealIds",
+    "wantedIngredients",
   ] as const)
     if (Array.isArray(v[key]))
       p[key] = (v[key] as unknown[])
@@ -34,6 +41,30 @@ function clean(value: unknown): Preferences {
     Number(v.maxSpiceLevel) <= 3
   )
     p.maxSpiceLevel = Number(v.maxSpiceLevel);
+  if (["small", "normal", "large", "extraLarge"].includes(String(v.appetite)))
+    p.appetite = String(v.appetite);
+  if (
+    ["default", "none", "noodles", "specified"].includes(String(v.stapleMode))
+  )
+    p.stapleMode = String(v.stapleMode);
+  if (typeof v.stapleDishId === "string") p.stapleDishId = v.stapleDishId;
+  if (
+    Number.isInteger(v.wantedSpiceLevel) &&
+    Number(v.wantedSpiceLevel) >= 0 &&
+    Number(v.wantedSpiceLevel) <= 3
+  )
+    p.wantedSpiceLevel = Number(v.wantedSpiceLevel);
+  if (Array.isArray(v.wantedExtras))
+    p.wantedExtras = v.wantedExtras
+      .filter(
+        (w): w is { dishId: string; quantity: number } =>
+          !!w &&
+          typeof w.dishId === "string" &&
+          Number.isInteger(w.quantity) &&
+          w.quantity > 0 &&
+          w.quantity <= 100,
+      )
+      .slice(0, 100);
   if (typeof v.note === "string")
     p.note = Array.from(v.note).slice(0, 200).join("");
   return p;
@@ -73,6 +104,11 @@ export function applyDefaults(
   if (existing) return clean(existing);
   const result = clean(defaults);
   result.note = "";
+  result.stapleMode = "default";
+  result.stapleDishId = null;
+  result.wantedIngredients = [];
+  result.wantedExtras = [];
+  result.wantedSpiceLevel = null;
   result.wantedDishIds = [];
   result.wantedSetMealIds = [];
   return result;

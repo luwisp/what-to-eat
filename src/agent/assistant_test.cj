@@ -136,6 +136,18 @@ class ModelBoundaryTests {
         @Expect(result.mode, "ai")
     }
     @TestCase
+    func textCanSuggestHiddenStapleModeWithoutChangingOriginal() {
+        let clock = AssistantClock()
+        let model = ScriptedModel(clock, "{\"stapleMode\":\"none\",\"wantedSpiceLevel\":1}")
+        let original = Preferences()
+        let suggestion = PreferenceInterpreter(client: Some(model))
+            .interpret(original, "不要米饭，想吃微辣", Deadline(clock, 30000)).unwrap()
+        let p = Preferences.fromJson(suggestion["prefs"].asObject())
+        @Expect(p.stapleMode, "none")
+        @Expect(p.wantedSpiceLevel, Some(1))
+        @Expect(original.stapleMode, "default")
+    }
+    @TestCase
     func textSuggestionsCannotDeleteExistingConstraints() {
         let clock = AssistantClock()
         let model = ScriptedModel(clock,

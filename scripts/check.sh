@@ -10,4 +10,6 @@ npm run test:platform
 node --test tests/room-integration.mjs
 npm --prefix frontend run test -- --run
 npm --prefix frontend run test:e2e
+npm --prefix frontend run test:e2e:full
+python3 -m unittest discover -s tests -p 'test_menu_import.py'
 git diff --check -- . ":(exclude)README.md" ":(exclude)docs/**"

@@ -5,6 +5,7 @@ import huaiwei.store.*
 import huaiwei.platform.*
 import huaiwei.agent.*
 import stdx.crypto.crypto.*
+import stdx.encoding.json.*
 
 public enum RoomCommand {
     UpdatePreferences(Preferences, Bool)
@@ -13,6 +14,7 @@ public enum RoomCommand {
     | RemoveCompanion(String)
     | UpdateSession(Int64, ?Int64)
     | Confirm(String, Int64)
+    | EditResult(Array<RecommendationItem>)
     | Reopen
 }
 
@@ -50,7 +52,7 @@ public func roomMenu(db: DatabaseSnapshot, session: Session): MenuSnapshot {
                     version = v.menuVersion
                 }
             }
-            return MenuSnapshot(restaurant: r, menuVersion: version,
+            return MenuSnapshot(mealMetadata: db.mealMetadata.filter({f => db.dishes.any({d => d.id == f.dishId && d.restaurantId == r.id})}), restaurant: r, menuVersion: version,
                 dishes: db.dishes.filter({d => d.restaurantId == r.id}),
                 setMeals: db.setMeals.filter({m => m.restaurantId == r.id}))
         }
@@ -138,6 +140,11 @@ public func roomSnapshot(db: DatabaseSnapshot, s: Session, actor: Actor): RoomSn
 }
 
 public func checkPreferences(p: Preferences): Unit {
+    demand(["small","normal","large","extraLarge"].contains(p.appetite), "INVALID_PREFERENCES", "饭量无效")
+    demand(["default","none","noodles","specified"].contains(p.stapleMode), "INVALID_PREFERENCES", "主食设置无效")
+    demand(p.wantedIngredients.size <= 100 && p.wantedExtras.size <= 100, "INVALID_PREFERENCES", "选项过多")
+    for (w in p.wantedExtras) { demand(w.quantity > 0 && w.quantity <= 100, "INVALID_PREFERENCES", "额外项份数无效") }
+    if (let Some(level) <- p.wantedSpiceLevel) { demand(validateSpice(level).isOk(), "INVALID_PREFERENCES", "愿望辣度无效") }
     demand(["none", "ovoLacto", "plant"].contains(p.dietMode), "INVALID_PREFERENCES", "饮食模式无效")
     if (let Some(level) <- p.maxSpiceLevel) {
         demand(validateSpice(level).isOk(), "INVALID_PREFERENCES", "辣度无效")
@@ -159,6 +166,7 @@ func commandSignature(command: RoomCommand): String {
         case RemoveCompanion(id) => "remove:${id}"
         case UpdateSession(people, budget) => "session:${people}:${budget}"
         case Confirm(id, version) => "confirm:${id}:${version}"
+        case EditResult(items) => "edit:${JsonArray(items.map({i => i.toJson()}))}"
         case Reopen => "reopen"
     }
 }
@@ -221,7 +229,7 @@ public class RoomService {
         if (let Some(uid) <- actor.userId) {
             for (d in db.defaultSettings) {
                 if (d.userId == uid) {
-                    p.draft = Preferences(allergens: d.allergens.clone(), avoidFoods: d.avoidFoods.clone(),
+                    p.draft = Preferences(appetite: d.appetite, allergens: d.allergens.clone(), avoidFoods: d.avoidFoods.clone(),
                         dietMode: d.dietMode, maxSpiceLevel: d.maxSpiceLevel,
                         tastePreferences: d.tastePreferences.clone())
                 }
@@ -329,6 +337,23 @@ public class RoomService {
                     demand(s.stateVersion == expectedVersion, "STALE_VERSION", "房间已变化，请使用最新状态重试",
                         status: 409)
                     match (command) {
+                        case EditResult(items) =>
+                            demand(s.state != "closed" && !s.recommendationInvalid, "INVALID_RESULT", "请先重新推荐或重开", status: 409)
+                            let members = db.participants.filter({p => p.sessionId == s.id})
+                            let input = RuleInput(menu: roomMenu(db, s), members: members, people: s.people, budgetPerPersonFen: s.budgetPerPersonFen)
+                            let checked = checkMealRecommendation(input, items)
+                            if (let Err(e) <- checked) { throw RoomFault(e.code, e.message, status: e.status) }
+                            var mode = "rules"
+                            for (old in db.recommendations) { if (old.sessionId == s.id) { mode = old.mode } }
+                            invalidateRoom(db, s)
+                            let draft = checked.unwrap()
+                            db.recommendations = db.recommendations.filter({r => r.sessionId != s.id}).concat([
+                                Recommendation(id: newId(), sessionId: s.id, roomVersion: s.stateVersion,
+                                    menuVersion: input.menu.menuVersion, mode: mode, draft: draft, createdAt: clock.wallMillis(),
+                                    canConfirm: members.size >= s.people && members.all({p => p.submitted}) && draft.uncoveredIds.isEmpty() &&
+                                        (input.menu.mealMetadata.isEmpty() || draft.mealStatus == "complete"))])
+                            s.state = "recommended"
+                            s.recommendationInvalid = false
                         case Reopen =>
                             demand(me.id == s.hostParticipantId, "FORBIDDEN", "只有发起人可重开", status: 403)
                             s.state = "open"
@@ -345,7 +370,7 @@ public class RoomService {
                                 if (r.id == id && r.sessionId == s.id) {
                                     demand(
                                         r.roomVersion == version && version == s.stateVersion && r.menuVersion == roomMenu(
-                                            db, s).menuVersion && r.draft.uncoveredIds.isEmpty(), "INVALID_RESULT",
+                                            db, s).menuVersion && r.draft.uncoveredIds.isEmpty() && (roomMenu(db, s).mealMetadata.isEmpty() || r.draft.mealStatus == "complete"), "INVALID_RESULT",
                                         "方案已过期或仍有成员无菜", status: 409)
                                     r.accepted = true
                                     r.canConfirm = false

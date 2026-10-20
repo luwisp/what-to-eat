@@ -16,8 +16,11 @@ SCHEMA = {
     'StoredVisitorSession': 'tokenHash:String visitorId:String expiresAt:Int64',
     'AuthSession': 'account:AccountView setCookie:String',
     'VisitorSession': 'actor:Actor setCookie:?String',
-    'Preferences': 'allergens:[String] avoidFoods:[String] dietMode:String=none maxSpiceLevel:?Int64 tastePreferences:[String] wantedDishIds:[String] wantedSetMealIds:[String] note:String',
-    'UserDefaultSettings': 'userId:String allergens:[String] avoidFoods:[String] dietMode:String=none maxSpiceLevel:?Int64 tastePreferences:[String] updatedAt:Int64',
+    'ExtraWish': 'dishId:String quantity:Int64=1',
+    'DishMealFacts': 'dishId:String role:String=unknown vegetable:Bool primaryIngredients:[String] stapleUnits:?Int64 stapleKind:String=other soupGroupId:String servesMax:?Int64',
+    'MealAllocation': 'memberId:String coverage:Int64 halfDishNeed:Int64 halfDishAllocated:Int64 stapleDishId:?String stapleOptOut:Bool',
+    'Preferences': 'appetite:String=normal stapleMode:String=default stapleDishId:?String wantedIngredients:[String] wantedExtras:[ExtraWish] wantedSpiceLevel:?Int64 allergens:[String] avoidFoods:[String] dietMode:String=none maxSpiceLevel:?Int64 tastePreferences:[String] wantedDishIds:[String] wantedSetMealIds:[String] note:String',
+    'UserDefaultSettings': 'appetite:String=normal userId:String allergens:[String] avoidFoods:[String] dietMode:String=none maxSpiceLevel:?Int64 tastePreferences:[String] updatedAt:Int64',
     'Restaurant': 'id:String ownerId:String restaurantCode:String name:String description:String',
     'RestaurantEntry': 'restaurantCode:String link:String',
     'DishInput': 'name:String description:String taste:String cookingMethod:String priceFen:Int64 imageUrl:String category:String=hot ingredients:[String] spiceLevel:Int64 available:Bool=true isSignature:Bool',
@@ -26,7 +29,7 @@ SCHEMA = {
     'SetMealInput': 'name:String imageUrl:String components:[SetMealComponent] priceFen:Int64',
     'SetMeal': 'id:String restaurantId:String name:String imageUrl:String components:[SetMealComponent] priceFen:Int64',
     'MenuVersion': 'restaurantId:String menuVersion:Int64',
-    'MenuSnapshot': 'restaurant:Restaurant menuVersion:Int64 dishes:[Dish] setMeals:[SetMeal]',
+    'MenuSnapshot': 'mealMetadata:[DishMealFacts] restaurant:Restaurant menuVersion:Int64 dishes:[Dish] setMeals:[SetMeal]',
     'Session': 'id:String roomCode:String restaurantId:String hostParticipantId:String state:String=open people:Int64=4 budgetPerPersonFen:?Int64 stateVersion:Int64=1 menuVersion:Int64 createdAt:Int64 expiresAt:Int64 recommendationInvalid:Bool',
     'Participant': 'id:String sessionId:String userId:?String visitorId:?String nickname:String avatarColor:?String submitted:Bool preferences:Preferences draft:Preferences joinedAt:Int64 source:String=self filledByParticipantId:?String',
     'ParticipantView': 'id:String nickname:String avatarColor:?String submitted:Bool preferences:?Preferences source:String=self filledByParticipantId:?String',
@@ -36,7 +39,7 @@ SCHEMA = {
     'MemberFit': 'status:String=fit reasons:[String]',
     'DishFit': 'dishId:String memberId:String status:String=fit reasons:[String]',
     'UnmetWish': 'memberId:String itemType:String itemId:String reason:String',
-    'RecommendationDraft': 'items:[RecommendationItem] expandedDishes:[ExpandedDish] fits:[DishFit] totalFen:Int64 undercoveredIds:[String] uncoveredIds:[String] unmetWishes:[UnmetWish] budgetWarning:?String notices:[String] associations:IngredientAssociations',
+    'RecommendationDraft': 'mealStatus:String=legacy estimatedHotNeed:Int64 estimatedHotSupply:Int64 mealMembers:[MealAllocation] items:[RecommendationItem] expandedDishes:[ExpandedDish] fits:[DishFit] totalFen:Int64 undercoveredIds:[String] uncoveredIds:[String] unmetWishes:[UnmetWish] budgetWarning:?String notices:[String] associations:IngredientAssociations',
     'Recommendation': 'id:String sessionId:String roomVersion:Int64 menuVersion:Int64 mode:String=rules draft:RecommendationDraft canConfirm:Bool createdAt:Int64 accepted:Bool',
     'ChatMessage': 'id:String sessionId:String sender:String role:String content:String createdAt:Int64',
     'DedupeRecord': 'scope:String actorId:String requestId:String operation:String resultJson:String expiresAt:Int64',
@@ -47,7 +50,7 @@ SCHEMA = {
     'CreateSessionInput': 'restaurantCode:String people:Int64=4 budgetPerPersonFen:?Int64',
     'RoomSnapshot': 'session:Session restaurantCode:String stateVersion:Int64 menuVersion:Int64 members:[ParticipantView] self:?Participant recommendation:?Recommendation recommendationInvalid:Bool job:?RecommendationJob messages:[ChatMessage]',
     'StoreConfig': 'path:String',
-    'DatabaseSnapshot': 'schemaVersion:Int64=1 users:[UserAccount] merchants:[MerchantAccount] authSessions:[StoredAuthSession] visitorSessions:[StoredVisitorSession] defaultSettings:[UserDefaultSettings] restaurants:[Restaurant] menuVersions:[MenuVersion] dishes:[Dish] setMeals:[SetMeal] sessions:[Session] participants:[Participant] recommendations:[Recommendation] chatMessages:[ChatMessage] dedupeRecords:[DedupeRecord] jobs:[RecommendationJob]',
+    'DatabaseSnapshot': 'mealMetadata:[DishMealFacts] schemaVersion:Int64=1 users:[UserAccount] merchants:[MerchantAccount] authSessions:[StoredAuthSession] visitorSessions:[StoredVisitorSession] defaultSettings:[UserDefaultSettings] restaurants:[Restaurant] menuVersions:[MenuVersion] dishes:[Dish] setMeals:[SetMeal] sessions:[Session] participants:[Participant] recommendations:[Recommendation] chatMessages:[ChatMessage] dedupeRecords:[DedupeRecord] jobs:[RecommendationJob]',
 }
 
 
@@ -85,6 +88,18 @@ def decode(kind, value):
     return f'{value}.{scalar}().getValue()' if scalar else f'{kind}.fromJson({value}.asObject())'
 
 
+MIGRATED = {
+ 'Preferences': {'appetite','stapleMode','stapleDishId','wantedIngredients','wantedExtras','wantedSpiceLevel'},
+ 'UserDefaultSettings': {'appetite'}, 'MenuSnapshot': {'mealMetadata'},
+ 'DatabaseSnapshot': {'mealMetadata'},
+ 'RecommendationDraft': {'mealStatus','estimatedHotNeed','estimatedHotSupply','mealMembers'},
+}
+def field_decode(record, key, kind, fallback):
+    value = decode(kind, f'obj["{key}"]')
+    if key in MIGRATED.get(record, set()):
+        return f'if (obj.containsKey("{key}")) {{ {value} }} else {{ {fallback} }}'
+    return value
+
 def generate():
     lines = ['// Generated by scripts/generate-models.py; edit its schema and regenerate.',
              'package huaiwei.model', '', 'import stdx.encoding.json.*', '']
@@ -108,7 +123,7 @@ def generate():
         lines.extend(['        return obj', '    }', '', f'    public static func fromJson(obj: JsonObject): {name} {{'])
         if name == 'DatabaseSnapshot':
             lines.append('        if (obj["schemaVersion"].asInt().getValue() != 1) { throw Exception("Unsupported database schema") }')
-        args = ',\n            '.join(f'{key}: {decode(kind, f"obj[\"{key}\"]")}' for key, kind, _ in fields)
+        args = ',\n            '.join(f'{key}: {field_decode(name, key, kind, d)}' for key, kind, d in fields)
         lines.extend([f'        return {name}({args})', '    }', '}', ''])
     Path('src/model/entities.cj').write_text('\n'.join(lines))
     def ts_type(kind):

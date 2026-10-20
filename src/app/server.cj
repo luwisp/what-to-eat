@@ -7,7 +7,10 @@ import huaiwei.model.*
 import huaiwei.store.*
 import huaiwei.room.*
 import huaiwei.agent.*
+import huaiwei.auth.*
+import huaiwei.catalog.*
 import stdx.net.http.*
+import stdx.encoding.json.*
 
 public func serverConfigFromEnvironment(): ServerConfig {
     let host = getVariable("HUAIWEI_HOST") ?? "127.0.0.1"
@@ -17,7 +20,16 @@ public func serverConfigFromEnvironment(): ServerConfig {
 }
 
 public func startServer(config: ServerConfig): Unit {
-    let server = createHttpServer(config, configure: {router => router.pages(serveFrontend("web"))})
+    let database = getVariable("HUAIWEI_DB_PATH") ?? "data/runtime/huaiwei.sqlite"
+    let repository = SqliteRepository(database)
+    let origin = getVariable("HUAIWEI_PUBLIC_BASE_URL") ?? "http://localhost:${config.port}"
+    let auth = AuthService(repository, publicOrigin: origin)
+    auth.pruneExpired().unwrap()
+    let defaults = DefaultSettingsService(repository)
+    let server = createDiningServer(config, repository, auth, origin, {router, committed =>
+        registerAuthRoutes(router, auth, defaults)
+        registerCatalogRoutes(router, repository, auth, origin, committed)
+    })
     println("Huaiwei listening on ${config.host}:${config.port}")
     server.serve()
 }
@@ -42,6 +54,9 @@ public func createDiningServer(config: ServerConfig, repository: Repository, ide
         config,
         configure: {
             router =>
+                router.on("GET", "/api/capabilities", {ctx, _ =>
+                    let o = JsonObject(); o.put("aiEnabled", JsonBool(client.isSome())); jsonResponse(ctx, 200, o)
+                })
                 registerBackend(router, {restaurantId, version => transport.onMenuCommitted(restaurantId, version)})
                 transport.register(router)
                 router.pages(serveFrontend("web"))

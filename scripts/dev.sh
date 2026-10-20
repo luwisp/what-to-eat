@@ -11,5 +11,9 @@ if [ "${1:-}" = --component-demo ]; then
   exec bash scripts/cj.sh exec target/integration/dining-server
 fi
 bash scripts/cj.sh build -j 4
-printf '%s\n' 'Platform frontend host: business services require teammate adapters wired through createDiningServer. Use --component-demo only for explicit component review.'
+export HUAIWEI_DB_PATH=${HUAIWEI_DB_PATH:-data/runtime/huaiwei.sqlite}
+if [ ! -f "$HUAIWEI_DB_PATH" ]; then python3 scripts/import-menu.py --db "$HUAIWEI_DB_PATH"; fi
+python3 scripts/migrate-meal-metadata.py --db "$HUAIWEI_DB_PATH"
+python3 scripts/restore-menu-assets.py --db "$HUAIWEI_DB_PATH"
+printf '%s\n' 'Dining app: SQLite accounts, menus, rooms and v3 meal recommendations. Restaurant code: LAOXIANGJI.'
 exec bash scripts/cj.sh exec target/release/bin/huaiwei

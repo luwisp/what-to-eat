@@ -1285,3 +1285,166 @@ td {
       color 0.15s;
   }
 }
+
+.ingredient-options {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.result-editor {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f7fbf8;
+}
+.result-editor > .row {
+  margin: 12px 0;
+}
+.result-editor .row > label {
+  flex: 0 1 80px;
+  min-width: 70px;
+  margin-bottom: 0;
+}
+.result-editor .row > span {
+  flex: 1;
+  min-width: 120px;
+}
+.result-editor select {
+  flex: 1;
+  min-width: 150px;
+}
+.meal-allocations {
+  font-size: 13px;
+  color: #64766a;
+}
+.preferences select + select {
+  margin-top: 8px;
+}
+
+.preferences-card {
+  max-width: 760px;
+  margin-inline: auto;
+}
+.preferences-simple > fieldset,
+.preferences-simple > .allergy-picker {
+  padding-bottom: 22px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.preferences-simple legend {
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.preferences-simple > fieldset:first-child select {
+  max-width: 180px;
+}
+.preferences-simple select[aria-label="接受辣度"] {
+  margin: 12px 0;
+  max-width: 240px;
+}
+.preferences-simple .chips {
+  gap: 8px;
+  margin: 8px 0;
+}
+.preferences-simple .chips:empty {
+  display: none;
+}
+.preferences-simple .chips button {
+  font-size: 13px;
+  padding: 8px 13px;
+}
+.preferences-simple .row {
+  margin-top: 12px;
+}
+.preferences-simple .row input {
+  flex: 1;
+  min-width: 0;
+}
+.menu-wish-link {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 14px;
+}
+.selected-wishes {
+  margin-top: 14px;
+}
+.ingredient-picker {
+  margin: 18px 0 0;
+  font-size: 13px;
+}
+.ingredient-picker summary {
+  color: #68796f;
+  line-height: 1.7;
+}
+.ingredient-picker input {
+  margin-top: 12px;
+}
+.preference-more {
+  padding: 6px 0;
+  color: var(--green);
+  background: none;
+  border: 0;
+  font-size: 12px;
+}
+.allergy-picker > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 15px;
+  list-style: none;
+}
+.allergy-picker > summary::-webkit-details-marker {
+  display: none;
+}
+.allergy-picker > summary::after {
+  content: "⌄";
+  color: #87988c;
+  margin-left: auto;
+}
+.allergy-picker[open] > summary::after {
+  transform: rotate(180deg);
+}
+.allergy-summary {
+  color: #87988c;
+  font-size: 12px;
+  font-weight: 400;
+}
+.allergy-picker .allergen-field {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+.allergy-picker .allergen-field legend {
+  display: none;
+}
+.preference-note {
+  font-size: 14px;
+}
+.preference-note textarea {
+  min-height: 80px;
+  font-size: 14px;
+}
+.room-page:has(.preferences-actions) {
+  padding-bottom: 110px;
+}
+.preferences-actions {
+  position: fixed;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 24px), 720px);
+  background: white;
+  border: 1px solid #e6eee9;
+  box-shadow: 0 4px 28px #243f3114;
+  border-radius: 16px;
+  padding: 12px;
+  z-index: 20;
+  flex-wrap: nowrap;
+}
+.preferences-actions button {
+  white-space: nowrap;
+  font-size: 14px;
+}
+.preferences-actions .primary {
+  flex: 1;
+}

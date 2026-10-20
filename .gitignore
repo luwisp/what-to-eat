@@ -13,3 +13,5 @@ playwright-report/
 *.lo
 
 __pycache__/
+
+test-results-full/

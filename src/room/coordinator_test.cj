@@ -7,6 +7,31 @@ import std.unittest.testmacro.*
 @Test
 class CoordinatorTests {
     @TestCase
+    func manualMealEditsRecheckCompletenessAndRejectStaleVersions() {
+        let repo = TestRepository()
+        repo.data.dishes = [Dish(id: "a", restaurantId: "r", ingredients: ["土豆"], priceFen: 1000),
+            Dish(id: "rice", restaurantId: "r", name: "米饭", category: "staple", ingredients: ["大米"], priceFen: 200)]
+        repo.data.mealMetadata = [DishMealFacts(dishId: "a", role: "hotMain"),
+            DishMealFacts(dishId: "rice", role: "staple", stapleKind: "rice", stapleUnits: Some(1))]
+        let rooms = RoomService(repo, TestClock())
+        let c = RecommendationCoordinator(rooms)
+        let actor = Actor(visitorId: Some("host"))
+        let room = rooms.create(actor, CreateSessionInput(restaurantCode: "TEST", people: 1), "create").unwrap()
+        rooms.apply(actor, room.session.roomCode, RoomCommand.UpdatePreferences(Preferences(), true), room.stateVersion, "submit").unwrap()
+        let job = c.request(actor, room.session.roomCode, "recommend", None).unwrap()
+        let full = c.commitResult(job, c.calculate(job).unwrap(), "rules").unwrap()
+        @Expect(full.recommendation.getOrThrow().canConfirm, true)
+        let items = full.recommendation.getOrThrow().draft.items
+        let changed = rooms.apply(actor, room.session.roomCode,
+            RoomCommand.EditResult(items.filter({i => i.itemId != "rice"})), full.stateVersion, "remove-rice").unwrap()
+        @Expect(changed.recommendation.getOrThrow().canConfirm, false)
+        @Expect(changed.recommendation.getOrThrow().draft.mealStatus, "partial")
+        @Expect(rooms.apply(actor, room.session.roomCode, RoomCommand.EditResult(items), full.stateVersion, "stale").isOk(), false)
+        let restored = rooms.apply(actor, room.session.roomCode, RoomCommand.EditResult(items), changed.stateVersion, "restore").unwrap()
+        @Expect(restored.recommendation.getOrThrow().canConfirm, true)
+    }
+
+    @TestCase
     func snapshotDetectsMenuChangeEvenIfNotificationFails() {
         let repo = TestRepository()
         repo.data.dishes = [Dish(id: "a", restaurantId: "r", name: "菜", ingredients: ["土豆"])]

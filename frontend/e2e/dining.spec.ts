@@ -31,7 +31,7 @@ test("browse first, preserve wishes and text, invite before filling, independent
     h.getByText("1 人已填写 / 声明 2 人", { exact: false }),
   ).toBeVisible();
   await h.getByRole("link", { name: "我的要求", exact: true }).click();
-  await expect(h.getByText("已标记 1 道菜", { exact: false })).toBeVisible();
+  await expect(h.getByRole("button", { name: /^移除想吃/ })).toHaveCount(1);
   await h.getByLabel("还有想说的？").fill("我的文字草稿");
   await h.getByRole("link", { name: "看菜单 / 标记想吃" }).click();
   await h.getByRole("button", { name: "完成选择" }).click();

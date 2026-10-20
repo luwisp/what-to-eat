@@ -1,6 +1,7 @@
 package huaiwei.agent
 
 import huaiwei.model.*
+import huaiwei.platform.*
 import std.unittest.*
 import std.unittest.testmacro.*
 
@@ -29,6 +30,70 @@ func mealFixture(people!: Int64 = 2, budget!: ?Int64 = None, options!: Array<Mea
 
 @Test
 class MealTests {
+    @TestCase
+    func visibleWishesInferStaplesAndRiceOverridesReplacement() {
+        let rice = dish("rice", ["大米"], category: "staple")
+        rice.name = "米饭"
+        let noodles = dish("noodles", ["小麦"], category: "staple")
+        noodles.name = "鸡汤面"
+        let wonton = dish("wonton", ["小麦"], category: "staple")
+        wonton.name = "鸡汤混沌"
+        let ms = [member("m")]
+        let input = RuleInput(menu: menu([rice, noodles, wonton]), members: ms, people: 1)
+        input.menu.mealMetadata = [
+            DishMealFacts(dishId: "rice", role: "staple", stapleKind: "rice", stapleUnits: Some(1)),
+            DishMealFacts(dishId: "noodles", role: "staple", stapleKind: "noodles", stapleUnits: Some(1)),
+            DishMealFacts(dishId: "wonton", role: "staple", stapleUnits: Some(1))]
+        ms[0].preferences.tastePreferences = ["面条"]
+        @Expect(mealRequestFor(input).options[0].stapleDishId, Some("noodles"))
+        ms[0].preferences.tastePreferences = ["馄饨"]
+        @Expect(mealRequestFor(input).options[0].stapleDishId, Some("wonton"))
+        ms[0].preferences.tastePreferences = []
+        ms[0].preferences.wantedDishIds = ["wonton"]
+        @Expect(mealRequestFor(input).options[0].stapleDishId, Some("wonton"))
+        ms[0].preferences.wantedDishIds = ["wonton", "rice"]
+        @Expect(mealRequestFor(input).options[0].stapleDishId, Some("rice"))
+        ms[0].preferences.wantedDishIds = []
+        ms[0].preferences.tastePreferences = ["馄饨", "米饭"]
+        @Expect(mealRequestFor(input).options[0].stapleMode, "default")
+        ms[0].preferences.tastePreferences = ["馄饨"]
+        ms[0].preferences.avoidFoods = ["小麦"]
+        @Expect(mealRequestFor(input).options[0].stapleMode, "specified")
+        @Expect(mealRequestFor(input).options[0].stapleDishId.isNone(), true)
+        ms[0].preferences.tastePreferences = []
+        ms[0].preferences.stapleMode = "none"
+        @Expect(mealRequestFor(input).options[0].stapleMode, "none")
+    }
+
+    @TestCase
+    func modelAdjustmentsUseTheSameMealValidationAndIncludeStaples() {
+        let fixture = mealFixture()
+        fixture.input.menu.mealMetadata = fixture.metadata.map({m => DishMealFacts(dishId: m.dishId, role: m.role, vegetable: m.vegetable, primaryIngredients: m.primaryIngredients, stapleUnits: m.stapleUnits, stapleKind: m.stapleKind)})
+        let clock = AssistantClock()
+        let model = ScriptedModel(clock, "{\"items\":[{\"itemType\":\"dish\",\"itemId\":\"a\",\"quantity\":1},{\"itemType\":\"dish\",\"itemId\":\"b\",\"quantity\":1},{\"itemType\":\"dish\",\"itemId\":\"rice\",\"quantity\":2}]}")
+        let assistant = DiningAssistant(client: Some(model))
+        let initial = assistant.recommend(fixture.input, Deadline(clock, 30000)).unwrap()
+        @Expect(initial.draft.mealStatus, "complete")
+        let current = Recommendation(mode: "rules", draft: initial.draft)
+        let changed = assistant.adjust(fixture.input, current, "保留米饭，重新搭配热菜", [], Deadline(clock,30000)).unwrap()
+        @Expect(changed.draft.mealStatus, "complete")
+        @Expect(changed.draft.totalFen, 1700)
+    }
+
+    @TestCase
+    func manualRemovalDoesNotRestoreStaplesAndReportsDeficits() {
+        let r = mealFixture()
+        let full = buildMealRecommendation(r).unwrap().draft
+        let withoutRice = full.items.filter({i => i.itemId != "rice"})
+        let changed = validateMealItems(r, withoutRice).unwrap()
+        @Expect(changed.items.any({i => i.itemId == "rice"}), false)
+        @Expect(changed.mealStatus, "partial")
+        @Expect(changed.notices.any({n => n.contains("主食份数不足")}), true)
+        @Expect(validateMealItems(r, full.items).unwrap().mealStatus, "complete")
+        let limited = mealFixture(budget: Some(1))
+        @Expect(validateMealItems(limited, full.items).isOk(), false)
+    }
+
     @TestCase
     func appetiteUsesHalfUnitsAndUnsubmittedNormalReservation() {
         let r = mealFixture(people: 5,

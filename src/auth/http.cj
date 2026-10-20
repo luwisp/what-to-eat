@@ -157,8 +157,9 @@ public func registerAuthRoutes(router: HttpRouter, auth: AuthService, defaults: 
 
 func parseDefaults(body: JsonObject): UserDefaultSettings {
     try {
-        rejectUnknown(body, ["allergens", "avoidFoods", "dietMode", "maxSpiceLevel", "tastePreferences"])
+        rejectUnknown(body, ["allergens", "avoidFoods", "dietMode", "maxSpiceLevel", "tastePreferences", "appetite"])
         UserDefaultSettings(
+            appetite: if (body.containsKey("appetite")) { body["appetite"].asString().getValue() } else { "normal" },
             allergens: body["allergens"].asArray().getItems().toArray().map({v => v.asString().getValue()}),
             avoidFoods: body["avoidFoods"].asArray().getItems().toArray().map({v => v.asString().getValue()}),
             dietMode: body["dietMode"].asString().getValue(), maxSpiceLevel: match (body["maxSpiceLevel"]) {

@@ -3,6 +3,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shutil
 import sqlite3
@@ -21,7 +22,7 @@ class MetadataTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.directory = Path(self.temp.name)
         self.db = self.directory / 'menu.sqlite'
-        shutil.copyfile(ROOT / 'data/runtime/huaiwei.sqlite', self.db)
+        shutil.copyfile(Path(os.environ.get('HUAIWEI_DEV_DB', ROOT / 'data/runtime/huaiwei.sqlite')), self.db)
         with sqlite3.connect(self.db) as db:
             self.snapshot = json.loads(db.execute('SELECT payload_json FROM app_snapshot WHERE id=1').fetchone()[0])
 

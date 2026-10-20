@@ -245,7 +245,132 @@ public class VisitorSession {
 
 }
 
+public class ExtraWish {
+    public var dishId: String
+    public var quantity: Int64
+
+    public init(dishId!: String = "",
+        quantity!: Int64 = 1) {
+        this.dishId = dishId
+        this.quantity = quantity
+    }
+
+    public func toJson(): JsonObject {
+        let obj = JsonObject()
+        obj.put("dishId", JsonString(dishId))
+        obj.put("quantity", JsonInt(quantity))
+        return obj
+    }
+
+    public static func fromJson(obj: JsonObject): ExtraWish {
+        return ExtraWish(dishId: obj["dishId"].asString().getValue(),
+            quantity: obj["quantity"].asInt().getValue())
+    }
+}
+
+public class DishMealFacts {
+    public var dishId: String
+    public var role: String
+    public var vegetable: Bool
+    public var primaryIngredients: Array<String>
+    public var stapleUnits: ?Int64
+    public var stapleKind: String
+    public var soupGroupId: String
+    public var servesMax: ?Int64
+
+    public init(dishId!: String = "",
+        role!: String = "unknown",
+        vegetable!: Bool = false,
+        primaryIngredients!: Array<String> = [],
+        stapleUnits!: ?Int64 = None,
+        stapleKind!: String = "other",
+        soupGroupId!: String = "",
+        servesMax!: ?Int64 = None) {
+        this.dishId = dishId
+        this.role = role
+        this.vegetable = vegetable
+        this.primaryIngredients = primaryIngredients
+        this.stapleUnits = stapleUnits
+        this.stapleKind = stapleKind
+        this.soupGroupId = soupGroupId
+        this.servesMax = servesMax
+    }
+
+    public func toJson(): JsonObject {
+        let obj = JsonObject()
+        obj.put("dishId", JsonString(dishId))
+        obj.put("role", JsonString(role))
+        obj.put("vegetable", JsonBool(vegetable))
+        obj.put("primaryIngredients", JsonArray(primaryIngredients.map({item => JsonString(item) })))
+        obj.put("stapleUnits", match (stapleUnits) { case Some(v) => JsonInt(v); case None => JsonNull() })
+        obj.put("stapleKind", JsonString(stapleKind))
+        obj.put("soupGroupId", JsonString(soupGroupId))
+        obj.put("servesMax", match (servesMax) { case Some(v) => JsonInt(v); case None => JsonNull() })
+        return obj
+    }
+
+    public static func fromJson(obj: JsonObject): DishMealFacts {
+        return DishMealFacts(dishId: obj["dishId"].asString().getValue(),
+            role: obj["role"].asString().getValue(),
+            vegetable: obj["vegetable"].asBool().getValue(),
+            primaryIngredients: obj["primaryIngredients"].asArray().getItems().toArray().map({item => item.asString().getValue() }),
+            stapleUnits: match (obj["stapleUnits"]) { case _: JsonNull => None; case _ => Some(obj["stapleUnits"].asInt().getValue()) },
+            stapleKind: obj["stapleKind"].asString().getValue(),
+            soupGroupId: obj["soupGroupId"].asString().getValue(),
+            servesMax: match (obj["servesMax"]) { case _: JsonNull => None; case _ => Some(obj["servesMax"].asInt().getValue()) })
+    }
+}
+
+public class MealAllocation {
+    public var memberId: String
+    public var coverage: Int64
+    public var halfDishNeed: Int64
+    public var halfDishAllocated: Int64
+    public var stapleDishId: ?String
+    public var stapleOptOut: Bool
+
+    public init(memberId!: String = "",
+        coverage!: Int64 = 0,
+        halfDishNeed!: Int64 = 0,
+        halfDishAllocated!: Int64 = 0,
+        stapleDishId!: ?String = None,
+        stapleOptOut!: Bool = false) {
+        this.memberId = memberId
+        this.coverage = coverage
+        this.halfDishNeed = halfDishNeed
+        this.halfDishAllocated = halfDishAllocated
+        this.stapleDishId = stapleDishId
+        this.stapleOptOut = stapleOptOut
+    }
+
+    public func toJson(): JsonObject {
+        let obj = JsonObject()
+        obj.put("memberId", JsonString(memberId))
+        obj.put("coverage", JsonInt(coverage))
+        obj.put("halfDishNeed", JsonInt(halfDishNeed))
+        obj.put("halfDishAllocated", JsonInt(halfDishAllocated))
+        obj.put("stapleDishId", match (stapleDishId) { case Some(v) => JsonString(v); case None => JsonNull() })
+        obj.put("stapleOptOut", JsonBool(stapleOptOut))
+        return obj
+    }
+
+    public static func fromJson(obj: JsonObject): MealAllocation {
+        return MealAllocation(memberId: obj["memberId"].asString().getValue(),
+            coverage: obj["coverage"].asInt().getValue(),
+            halfDishNeed: obj["halfDishNeed"].asInt().getValue(),
+            halfDishAllocated: obj["halfDishAllocated"].asInt().getValue(),
+            stapleDishId: match (obj["stapleDishId"]) { case _: JsonNull => None; case _ => Some(obj["stapleDishId"].asString().getValue()) },
+            stapleOptOut: obj["stapleOptOut"].asBool().getValue())
+    }
+}
+
 public class Preferences {
+    public var appetite: String
+    public var stapleMode: String
+    public var stapleDishId: ?String
+    public var wantedIngredients: Array<String>
+    public var wantedExtras: Array<ExtraWish>
+    public var wantedSpiceLevel: ?Int64
     public var allergens: Array<String>
     public var avoidFoods: Array<String>
     public var dietMode: String
@@ -255,7 +380,13 @@ public class Preferences {
     public var wantedSetMealIds: Array<String>
     public var note: String
 
-    public init(allergens!: Array<String> = [],
+    public init(appetite!: String = "normal",
+        stapleMode!: String = "default",
+        stapleDishId!: ?String = None,
+        wantedIngredients!: Array<String> = [],
+        wantedExtras!: Array<ExtraWish> = [],
+        wantedSpiceLevel!: ?Int64 = None,
+        allergens!: Array<String> = [],
         avoidFoods!: Array<String> = [],
         dietMode!: String = "none",
         maxSpiceLevel!: ?Int64 = None,
@@ -263,6 +394,12 @@ public class Preferences {
         wantedDishIds!: Array<String> = [],
         wantedSetMealIds!: Array<String> = [],
         note!: String = "") {
+        this.appetite = appetite
+        this.stapleMode = stapleMode
+        this.stapleDishId = stapleDishId
+        this.wantedIngredients = wantedIngredients
+        this.wantedExtras = wantedExtras
+        this.wantedSpiceLevel = wantedSpiceLevel
         this.allergens = allergens
         this.avoidFoods = avoidFoods
         this.dietMode = dietMode
@@ -275,6 +412,12 @@ public class Preferences {
 
     public func toJson(): JsonObject {
         let obj = JsonObject()
+        obj.put("appetite", JsonString(appetite))
+        obj.put("stapleMode", JsonString(stapleMode))
+        obj.put("stapleDishId", match (stapleDishId) { case Some(v) => JsonString(v); case None => JsonNull() })
+        obj.put("wantedIngredients", JsonArray(wantedIngredients.map({item => JsonString(item) })))
+        obj.put("wantedExtras", JsonArray(wantedExtras.map({item => item.toJson() })))
+        obj.put("wantedSpiceLevel", match (wantedSpiceLevel) { case Some(v) => JsonInt(v); case None => JsonNull() })
         obj.put("allergens", JsonArray(allergens.map({item => JsonString(item) })))
         obj.put("avoidFoods", JsonArray(avoidFoods.map({item => JsonString(item) })))
         obj.put("dietMode", JsonString(dietMode))
@@ -287,7 +430,13 @@ public class Preferences {
     }
 
     public static func fromJson(obj: JsonObject): Preferences {
-        return Preferences(allergens: obj["allergens"].asArray().getItems().toArray().map({item => item.asString().getValue() }),
+        return Preferences(appetite: if (obj.containsKey("appetite")) { obj["appetite"].asString().getValue() } else { "normal" },
+            stapleMode: if (obj.containsKey("stapleMode")) { obj["stapleMode"].asString().getValue() } else { "default" },
+            stapleDishId: if (obj.containsKey("stapleDishId")) { match (obj["stapleDishId"]) { case _: JsonNull => None; case _ => Some(obj["stapleDishId"].asString().getValue()) } } else { None },
+            wantedIngredients: if (obj.containsKey("wantedIngredients")) { obj["wantedIngredients"].asArray().getItems().toArray().map({item => item.asString().getValue() }) } else { [] },
+            wantedExtras: if (obj.containsKey("wantedExtras")) { obj["wantedExtras"].asArray().getItems().toArray().map({item => ExtraWish.fromJson(item.asObject()) }) } else { [] },
+            wantedSpiceLevel: if (obj.containsKey("wantedSpiceLevel")) { match (obj["wantedSpiceLevel"]) { case _: JsonNull => None; case _ => Some(obj["wantedSpiceLevel"].asInt().getValue()) } } else { None },
+            allergens: obj["allergens"].asArray().getItems().toArray().map({item => item.asString().getValue() }),
             avoidFoods: obj["avoidFoods"].asArray().getItems().toArray().map({item => item.asString().getValue() }),
             dietMode: obj["dietMode"].asString().getValue(),
             maxSpiceLevel: match (obj["maxSpiceLevel"]) { case _: JsonNull => None; case _ => Some(obj["maxSpiceLevel"].asInt().getValue()) },
@@ -299,6 +448,7 @@ public class Preferences {
 }
 
 public class UserDefaultSettings {
+    public var appetite: String
     public var userId: String
     public var allergens: Array<String>
     public var avoidFoods: Array<String>
@@ -307,13 +457,15 @@ public class UserDefaultSettings {
     public var tastePreferences: Array<String>
     public var updatedAt: Int64
 
-    public init(userId!: String = "",
+    public init(appetite!: String = "normal",
+        userId!: String = "",
         allergens!: Array<String> = [],
         avoidFoods!: Array<String> = [],
         dietMode!: String = "none",
         maxSpiceLevel!: ?Int64 = None,
         tastePreferences!: Array<String> = [],
         updatedAt!: Int64 = 0) {
+        this.appetite = appetite
         this.userId = userId
         this.allergens = allergens
         this.avoidFoods = avoidFoods
@@ -325,6 +477,7 @@ public class UserDefaultSettings {
 
     public func toJson(): JsonObject {
         let obj = JsonObject()
+        obj.put("appetite", JsonString(appetite))
         obj.put("userId", JsonString(userId))
         obj.put("allergens", JsonArray(allergens.map({item => JsonString(item) })))
         obj.put("avoidFoods", JsonArray(avoidFoods.map({item => JsonString(item) })))
@@ -336,7 +489,8 @@ public class UserDefaultSettings {
     }
 
     public static func fromJson(obj: JsonObject): UserDefaultSettings {
-        return UserDefaultSettings(userId: obj["userId"].asString().getValue(),
+        return UserDefaultSettings(appetite: if (obj.containsKey("appetite")) { obj["appetite"].asString().getValue() } else { "normal" },
+            userId: obj["userId"].asString().getValue(),
             allergens: obj["allergens"].asArray().getItems().toArray().map({item => item.asString().getValue() }),
             avoidFoods: obj["avoidFoods"].asArray().getItems().toArray().map({item => item.asString().getValue() }),
             dietMode: obj["dietMode"].asString().getValue(),
@@ -676,15 +830,18 @@ public class MenuVersion {
 }
 
 public class MenuSnapshot {
+    public var mealMetadata: Array<DishMealFacts>
     public var restaurant: Restaurant
     public var menuVersion: Int64
     public var dishes: Array<Dish>
     public var setMeals: Array<SetMeal>
 
-    public init(restaurant!: Restaurant = Restaurant(),
+    public init(mealMetadata!: Array<DishMealFacts> = [],
+        restaurant!: Restaurant = Restaurant(),
         menuVersion!: Int64 = 0,
         dishes!: Array<Dish> = [],
         setMeals!: Array<SetMeal> = []) {
+        this.mealMetadata = mealMetadata
         this.restaurant = restaurant
         this.menuVersion = menuVersion
         this.dishes = dishes
@@ -693,6 +850,7 @@ public class MenuSnapshot {
 
     public func toJson(): JsonObject {
         let obj = JsonObject()
+        obj.put("mealMetadata", JsonArray(mealMetadata.map({item => item.toJson() })))
         obj.put("restaurant", restaurant.toJson())
         obj.put("menuVersion", JsonInt(menuVersion))
         obj.put("dishes", JsonArray(dishes.map({item => item.toJson() })))
@@ -701,7 +859,8 @@ public class MenuSnapshot {
     }
 
     public static func fromJson(obj: JsonObject): MenuSnapshot {
-        return MenuSnapshot(restaurant: Restaurant.fromJson(obj["restaurant"].asObject()),
+        return MenuSnapshot(mealMetadata: if (obj.containsKey("mealMetadata")) { obj["mealMetadata"].asArray().getItems().toArray().map({item => DishMealFacts.fromJson(item.asObject()) }) } else { [] },
+            restaurant: Restaurant.fromJson(obj["restaurant"].asObject()),
             menuVersion: obj["menuVersion"].asInt().getValue(),
             dishes: obj["dishes"].asArray().getItems().toArray().map({item => Dish.fromJson(item.asObject()) }),
             setMeals: obj["setMeals"].asArray().getItems().toArray().map({item => SetMeal.fromJson(item.asObject()) }))
@@ -1076,6 +1235,10 @@ public class UnmetWish {
 }
 
 public class RecommendationDraft {
+    public var mealStatus: String
+    public var estimatedHotNeed: Int64
+    public var estimatedHotSupply: Int64
+    public var mealMembers: Array<MealAllocation>
     public var items: Array<RecommendationItem>
     public var expandedDishes: Array<ExpandedDish>
     public var fits: Array<DishFit>
@@ -1087,7 +1250,11 @@ public class RecommendationDraft {
     public var notices: Array<String>
     public var associations: IngredientAssociations
 
-    public init(items!: Array<RecommendationItem> = [],
+    public init(mealStatus!: String = "legacy",
+        estimatedHotNeed!: Int64 = 0,
+        estimatedHotSupply!: Int64 = 0,
+        mealMembers!: Array<MealAllocation> = [],
+        items!: Array<RecommendationItem> = [],
         expandedDishes!: Array<ExpandedDish> = [],
         fits!: Array<DishFit> = [],
         totalFen!: Int64 = 0,
@@ -1097,6 +1264,10 @@ public class RecommendationDraft {
         budgetWarning!: ?String = None,
         notices!: Array<String> = [],
         associations!: IngredientAssociations = IngredientAssociations()) {
+        this.mealStatus = mealStatus
+        this.estimatedHotNeed = estimatedHotNeed
+        this.estimatedHotSupply = estimatedHotSupply
+        this.mealMembers = mealMembers
         this.items = items
         this.expandedDishes = expandedDishes
         this.fits = fits
@@ -1111,6 +1282,10 @@ public class RecommendationDraft {
 
     public func toJson(): JsonObject {
         let obj = JsonObject()
+        obj.put("mealStatus", JsonString(mealStatus))
+        obj.put("estimatedHotNeed", JsonInt(estimatedHotNeed))
+        obj.put("estimatedHotSupply", JsonInt(estimatedHotSupply))
+        obj.put("mealMembers", JsonArray(mealMembers.map({item => item.toJson() })))
         obj.put("items", JsonArray(items.map({item => item.toJson() })))
         obj.put("expandedDishes", JsonArray(expandedDishes.map({item => item.toJson() })))
         obj.put("fits", JsonArray(fits.map({item => item.toJson() })))
@@ -1125,7 +1300,11 @@ public class RecommendationDraft {
     }
 
     public static func fromJson(obj: JsonObject): RecommendationDraft {
-        return RecommendationDraft(items: obj["items"].asArray().getItems().toArray().map({item => RecommendationItem.fromJson(item.asObject()) }),
+        return RecommendationDraft(mealStatus: if (obj.containsKey("mealStatus")) { obj["mealStatus"].asString().getValue() } else { "legacy" },
+            estimatedHotNeed: if (obj.containsKey("estimatedHotNeed")) { obj["estimatedHotNeed"].asInt().getValue() } else { 0 },
+            estimatedHotSupply: if (obj.containsKey("estimatedHotSupply")) { obj["estimatedHotSupply"].asInt().getValue() } else { 0 },
+            mealMembers: if (obj.containsKey("mealMembers")) { obj["mealMembers"].asArray().getItems().toArray().map({item => MealAllocation.fromJson(item.asObject()) }) } else { [] },
+            items: obj["items"].asArray().getItems().toArray().map({item => RecommendationItem.fromJson(item.asObject()) }),
             expandedDishes: obj["expandedDishes"].asArray().getItems().toArray().map({item => ExpandedDish.fromJson(item.asObject()) }),
             fits: obj["fits"].asArray().getItems().toArray().map({item => DishFit.fromJson(item.asObject()) }),
             totalFen: obj["totalFen"].asInt().getValue(),
@@ -1535,6 +1714,7 @@ public class StoreConfig {
 }
 
 public class DatabaseSnapshot {
+    public var mealMetadata: Array<DishMealFacts>
     public var schemaVersion: Int64
     public var users: Array<UserAccount>
     public var merchants: Array<MerchantAccount>
@@ -1552,7 +1732,8 @@ public class DatabaseSnapshot {
     public var dedupeRecords: Array<DedupeRecord>
     public var jobs: Array<RecommendationJob>
 
-    public init(schemaVersion!: Int64 = 1,
+    public init(mealMetadata!: Array<DishMealFacts> = [],
+        schemaVersion!: Int64 = 1,
         users!: Array<UserAccount> = [],
         merchants!: Array<MerchantAccount> = [],
         authSessions!: Array<StoredAuthSession> = [],
@@ -1568,6 +1749,7 @@ public class DatabaseSnapshot {
         chatMessages!: Array<ChatMessage> = [],
         dedupeRecords!: Array<DedupeRecord> = [],
         jobs!: Array<RecommendationJob> = []) {
+        this.mealMetadata = mealMetadata
         this.schemaVersion = schemaVersion
         this.users = users
         this.merchants = merchants
@@ -1588,6 +1770,7 @@ public class DatabaseSnapshot {
 
     public func toJson(): JsonObject {
         let obj = JsonObject()
+        obj.put("mealMetadata", JsonArray(mealMetadata.map({item => item.toJson() })))
         obj.put("schemaVersion", JsonInt(schemaVersion))
         obj.put("users", JsonArray(users.map({item => item.toJson() })))
         obj.put("merchants", JsonArray(merchants.map({item => item.toJson() })))
@@ -1609,7 +1792,8 @@ public class DatabaseSnapshot {
 
     public static func fromJson(obj: JsonObject): DatabaseSnapshot {
         if (obj["schemaVersion"].asInt().getValue() != 1) { throw Exception("Unsupported database schema") }
-        return DatabaseSnapshot(schemaVersion: obj["schemaVersion"].asInt().getValue(),
+        return DatabaseSnapshot(mealMetadata: if (obj.containsKey("mealMetadata")) { obj["mealMetadata"].asArray().getItems().toArray().map({item => DishMealFacts.fromJson(item.asObject()) }) } else { [] },
+            schemaVersion: obj["schemaVersion"].asInt().getValue(),
             users: obj["users"].asArray().getItems().toArray().map({item => UserAccount.fromJson(item.asObject()) }),
             merchants: obj["merchants"].asArray().getItems().toArray().map({item => MerchantAccount.fromJson(item.asObject()) }),
             authSessions: obj["authSessions"].asArray().getItems().toArray().map({item => StoredAuthSession.fromJson(item.asObject()) }),

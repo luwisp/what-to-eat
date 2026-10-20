@@ -52,7 +52,7 @@ public class RecommendationCoordinator {
                         "对话须为1至200字")
                     demand(!s.recommendationInvalid && db
                         .recommendations
-                        .any({r => r.sessionId == s.id && r.mode == "ai"}), "CHAT_DISABLED", "规则模式下请使用快捷操作")
+                        .any({r => r.sessionId == s.id}), "CHAT_DISABLED", "请先生成有效方案再调整")
                 }
                 let job = RecommendationJob(id: newId(), sessionId: s.id, requesterId: me.id, requestId: requestId,
                     roomVersion: s.stateVersion, menuVersion: roomMenu(db, s).menuVersion,
@@ -109,7 +109,7 @@ public class RecommendationCoordinator {
     }
     public func calculate(job: RecommendationJob): Outcome<RecommendationDraft> {
         try {
-            buildRuleRecommendation(inputFor(rooms.repository.read(), job))
+            recommendMeal(inputFor(rooms.repository.read(), job))
         } catch (e: RoomFault) {
             Outcome.Err(e.error)
         }
@@ -121,7 +121,7 @@ public class RecommendationCoordinator {
                 let input = inputFor(db, job)
                 demand(validateAssociations(input.menu, draft.associations), "INVALID_ASSOCIATIONS", "食材关联无效")
                 input.associations = draft.associations
-                let validated = validateRecommendation(input, draft.items)
+                let validated = checkMealRecommendation(input, draft.items)
                 if (let Err(e) <- validated) {
                     return Outcome.Err(e)
                 }
@@ -134,7 +134,7 @@ public class RecommendationCoordinator {
                         "rules"
                     }, draft: validated.unwrap(), createdAt: rooms.clock.wallMillis(),
                     canConfirm: members.size >= s.people && members.all({p => p.submitted}) &&
-                        validated.unwrap().uncoveredIds.isEmpty())
+                        validated.unwrap().uncoveredIds.isEmpty() && (input.menu.mealMetadata.isEmpty() || validated.unwrap().mealStatus == "complete"))
                 db.recommendations = db.recommendations.filter({old => old.sessionId != s.id}).concat([r])
                 for (j in db.jobs) {
                     if (j.id == job.id) {

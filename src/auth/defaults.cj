@@ -32,7 +32,7 @@ public class DefaultSettingsService {
             return Outcome.Err(DomainError("INVALID_INPUT", "默认设置无效"))
         }
         // Copy only long-term fields. Authorization never uses settings.userId.
-        let value = UserDefaultSettings(userId: actor.userId.getOrThrow(), allergens: settings.allergens.clone(),
+        let value = UserDefaultSettings(appetite: settings.appetite, userId: actor.userId.getOrThrow(), allergens: settings.allergens.clone(),
             avoidFoods: settings.avoidFoods.clone(), dietMode: settings.dietMode, maxSpiceLevel: settings.maxSpiceLevel,
             tastePreferences: settings.tastePreferences.clone(), updatedAt: clock.wallMillis())
         let result = repository.transact(
@@ -61,6 +61,7 @@ func unauthorizedDefaults(): Outcome<UserDefaultSettings> {
 }
 
 func validSettings(s: UserDefaultSettings): Bool {
+    if (!["small","normal","large","extraLarge"].contains(s.appetite)) { return false }
     if (s.dietMode != "none" && s.dietMode != "ovoLacto" && s.dietMode != "plant") {
         return false
     }

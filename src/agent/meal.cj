@@ -172,7 +172,7 @@ func mealRuleInput(input: RuleInput): RuleInput {
             if (i.contains("鸡肫")) {
                 aliases.add("内脏")
             }
-            if (!aliases.isEmpty()) {
+            if (!aliases.isEmpty() && !entries.any({e => e.ingredient == i && aliases.toArray().all({a => e.related.contains(a)})})) {
                 entries.add(IngredientAssociation(ingredient: i, related: aliases.toArray()))
             }
         }
@@ -568,7 +568,7 @@ func mealAllocate(f: MealFacts, dishQ: Array<Int64>): Array<Int64> {
     Array<Int64>(demands.size, {mi => demands[mi] - residual[1 + selected.size + mi][sink]})
 }
 
-func mealEvaluate(f: MealFacts, q: Array<Int64>, enforceBudget!: Bool = true): ?MealState {
+func mealEvaluate(f: MealFacts, q: Array<Int64>, enforceBudget!: Bool = true, manual!: ?ExpandedMenu = None): ?MealState {
     let dishQ = Array<Int64>(f.dishes.size, repeat: 0)
     var cost: Int64 = 0
     for (ci in 0..q.size) {
@@ -579,6 +579,13 @@ func mealEvaluate(f: MealFacts, q: Array<Int64>, enforceBudget!: Bool = true): ?
         cost = checkedAdd(cost, checkedMultiply(q[ci], c.price))
         for (j in 0..c.components.size) {
             dishQ[c.components[j]] = checkedAdd(dishQ[c.components[j]], checkedMultiply(q[ci], c.componentQuantities[j]))
+        }
+    }
+    if (let Some(expanded) <- manual) {
+        cost = expanded.totalFen
+        for (di in 0..f.dishes.size) {
+            dishQ[di] = 0
+            for (d in expanded.dishes) { if (d.dish.id == f.dishes[di].id) { dishQ[di] = d.quantity } }
         }
     }
     let needed = Array<Int64>(f.dishes.size, repeat: 0)
@@ -595,13 +602,23 @@ func mealEvaluate(f: MealFacts, q: Array<Int64>, enforceBudget!: Bool = true): ?
         }
     }
     for (di in 0..dishQ.size) {
-        if (f.meta[di].role == "staple" && dishQ[di] > needed[di]) {
+        if (f.meta[di].role == "staple" && dishQ[di] > needed[di] && manual.isNone()) {
             return None
         }
         let add = needed[di] - dishQ[di]
-        if (add > 0) {
+        if (add > 0 && manual.isSome()) { deficits.add("主食份数不足：${f.dishes[di].name}") }
+        if (add > 0 && manual.isNone()) {
             cost = checkedAdd(cost, checkedMultiply(add, f.dishes[di].priceFen))
             dishQ[di] += add
+        }
+    }
+    if (manual.isSome()) {
+        let available = dishQ.clone()
+        for (mi in 0..f.stapleChoice.size) {
+            let di = f.stapleChoice[mi]
+            if (di >= 0) {
+                if (available[di] > 0) { available[di]-- } else { stapleIds[mi] = "" }
+            }
         }
     }
     if (enforceBudget) {
@@ -915,8 +932,16 @@ func mealItems(f: MealFacts, s: MealState): Array<RecommendationItem> {
     items.toArray()
 }
 
-func mealDraft(f: MealFacts, s: MealState): RecommendationDraft {
-    let draft = validateRecommendation(f.input, mealItems(f, s)).unwrap()
+func mealDraft(f: MealFacts, s: MealState, supplied!: ?RecommendationDraft = None): RecommendationDraft {
+    let draft = supplied ?? validateRecommendation(f.input, mealItems(f, s)).unwrap()
+    draft.mealStatus = if (s.complete) { "complete" } else { "partial" }
+    draft.estimatedHotNeed = f.hotNeed
+    draft.estimatedHotSupply = s.hot
+    draft.mealMembers = Array<MealAllocation>(f.members.size, {mi =>
+        MealAllocation(memberId: f.members[mi].id, coverage: s.coverage[mi], halfDishNeed: f.halfNeeds[mi],
+            halfDishAllocated: s.allocated[mi], stapleDishId: if (s.stapleIds[mi].isEmpty()) { None } else { Some(s.stapleIds[mi]) },
+            stapleOptOut: f.stapleChoice[mi] == -2)
+    })
     draft.fits = draft.fits.filter(
         {
             entry =>
@@ -1059,6 +1084,9 @@ public func buildMealRecommendation(r: MealRequest, clock!: Clock = SystemClock(
             let draft = validateRecommendation(f.input, []).unwrap()
             let report = MealReport(draft, "noCandidate", false, f.hotNeed, 0, [1],
                 ["预算不足以提供所选主食；未擅自减少米饭，请提高预算或明确更改主食需求"], JsonArray([]))
+            draft.mealStatus = "partial"
+            draft.estimatedHotNeed = f.hotNeed
+            draft.notices = draft.notices.concat(report.deficits)
             report.stopReason = "exhausted"
             report.elapsedMillis = clock.monotonicMillis() - start
             return Outcome.Ok(report)
@@ -1284,4 +1312,22 @@ public func inspectMealMenu(r: MealRequest): JsonArray {
         rows.add(row)
     }
     JsonArray(rows.toArray())
+}
+
+// Validate exactly the submitted items. Manual edits never silently restore removed rice or dishes.
+public func validateMealItems(r: MealRequest, items: Array<RecommendationItem>): Outcome<RecommendationDraft> {
+    try {
+        let f = MealFacts(r)
+        let validated = validateRecommendation(f.input, items)
+        if (let Err(e) <- validated) { return Outcome.Err(e) }
+        let expansion = expandItems(f.input.menu, items).unwrap()
+        for (d in expansion.dishes) {
+            if (d.quantity > 100 || !f.meta.any({m => m.dishId == d.dish.id && m.role != "unknown"})) {
+                return Outcome.Err(DomainError("INVALID_MEAL", "菜品角色未确认或份数超限"))
+            }
+        }
+        let state = mealEvaluate(f, Array<Int64>(f.candidates.size, repeat: 0), manual: Some(expansion))
+        if (state.isNone()) { return Outcome.Err(DomainError("INVALID_MEAL", "超出预算或本桌菜量上限")) }
+        Outcome.Ok(mealDraft(f, state.getOrThrow(), supplied: Some(validated.unwrap())))
+    } catch (e: IllegalArgumentException) { Outcome.Err(DomainError("INVALID_MEAL", e.message)) }
 }

@@ -49,7 +49,35 @@ export interface VisitorSession {
   actor: Actor;
   setCookie: string | null;
 }
+export interface ExtraWish {
+  dishId: string;
+  quantity: number;
+}
+export interface DishMealFacts {
+  dishId: string;
+  role: string;
+  vegetable: boolean;
+  primaryIngredients: string[];
+  stapleUnits: number | null;
+  stapleKind: string;
+  soupGroupId: string;
+  servesMax: number | null;
+}
+export interface MealAllocation {
+  memberId: string;
+  coverage: number;
+  halfDishNeed: number;
+  halfDishAllocated: number;
+  stapleDishId: string | null;
+  stapleOptOut: boolean;
+}
 export interface Preferences {
+  appetite: string;
+  stapleMode: string;
+  stapleDishId: string | null;
+  wantedIngredients: string[];
+  wantedExtras: ExtraWish[];
+  wantedSpiceLevel: number | null;
   allergens: string[];
   avoidFoods: string[];
   dietMode: string;
@@ -60,6 +88,7 @@ export interface Preferences {
   note: string;
 }
 export interface UserDefaultSettings {
+  appetite: string;
   userId: string;
   allergens: string[];
   avoidFoods: string[];
@@ -130,6 +159,7 @@ export interface MenuVersion {
   menuVersion: number;
 }
 export interface MenuSnapshot {
+  mealMetadata: DishMealFacts[];
   restaurant: Restaurant;
   menuVersion: number;
   dishes: Dish[];
@@ -204,6 +234,10 @@ export interface UnmetWish {
   reason: string;
 }
 export interface RecommendationDraft {
+  mealStatus: string;
+  estimatedHotNeed: number;
+  estimatedHotSupply: number;
+  mealMembers: MealAllocation[];
   items: RecommendationItem[];
   expandedDishes: ExpandedDish[];
   fits: DishFit[];
@@ -291,6 +325,7 @@ export interface StoreConfig {
   path: string;
 }
 export interface DatabaseSnapshot {
+  mealMetadata: DishMealFacts[];
   schemaVersion: number;
   users: UserAccount[];
   merchants: MerchantAccount[];

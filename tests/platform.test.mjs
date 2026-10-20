@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync, spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { once } from 'node:events';
 import test from 'node:test';
@@ -11,9 +14,14 @@ async function withServer(t, probe = true) {
   await once(reservation, 'listening');
   const port = reservation.address().port;
   await new Promise(resolve => reservation.close(resolve));
+  const directory = await mkdtemp(join(tmpdir(), 'huaiwei-platform-'));
+  const db = join(directory, 'app.sqlite');
+  const imported = spawnSync('python3', ['scripts/import-menu.py','--db',db,'--assets-dir',join(directory,'images')], {encoding:'utf8'});
+  assert.equal(imported.status,0,imported.stderr);
+  t.after(() => rm(directory,{recursive:true,force:true}));
   let output = '';
   const child = spawn('bash', ['scripts/cj.sh', 'exec', 'target/release/bin/huaiwei'], {
-    env: { ...process.env, HUAIWEI_PORT: String(port), HUAIWEI_ENABLE_PROBES: probe ? 'true' : 'false' },
+    env: { ...process.env, HUAIWEI_DB_PATH: db, HUAIWEI_PORT: String(port), HUAIWEI_ENABLE_PROBES: probe ? 'true' : 'false' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.stdout.on('data', data => { output += data; });

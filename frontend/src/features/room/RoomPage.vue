@@ -6,6 +6,7 @@ import type {
   RoomSnapshot,
   Preferences,
   MenuSnapshot,
+  RecommendationItem,
 } from "../../shared/contracts";
 import { api, getMenu, money, priceFen, copyJson } from "../../shared/api";
 import { connectRoom, type RoomConnection } from "../../shared/socket";
@@ -17,6 +18,13 @@ import {
   type DraftKey,
 } from "../menu/drafts";
 import PreferencesForm from "../../shared/PreferencesForm.vue";
+const aiEnabled = ref(false);
+const stapleLabels: Record<string, string> = {
+  default: "搭配米饭",
+  none: "不配主食",
+  noodles: "换成面条",
+  specified: "指定主食",
+};
 const suggestions = ref<{ prefs: Preferences; message: string } | null>(null);
 const route = useRoute(),
   router = useRouter(),
@@ -24,7 +32,6 @@ const route = useRoute(),
   status = ref("正在连接"),
   error = ref(""),
   notice = ref(""),
-  nickname = ref(""),
   prefs = ref(emptyPreferences()),
   menu = ref<MenuSnapshot>(),
   invite = ref(false),
@@ -48,10 +55,52 @@ const submitted = computed(
   () => state.value?.members.filter((p) => p.submitted).length ?? 0,
 );
 const result = computed(() => state.value?.recommendation);
+const editingVersion = ref(0);
+const editingResult = ref(false),
+  editedItems = ref<RecommendationItem[]>([]),
+  addItem = ref("");
+function startResultEdit() {
+  editingVersion.value = state.value?.stateVersion ?? 0;
+  editedItems.value = copyJson(result.value?.draft.items ?? []);
+  editingResult.value = true;
+}
+function appendItem() {
+  const d = menu.value?.dishes.find((d) => d.id === addItem.value);
+  const m = menu.value?.setMeals.find((m) => m.id === addItem.value);
+  if (!d && !m) return;
+  const kind = d ? "dish" : "setMeal";
+  const existing = editedItems.value.find(
+    (i) => i.itemType === kind && i.itemId === addItem.value,
+  );
+  if (existing) existing.quantity++;
+  else
+    editedItems.value.push({
+      itemType: kind,
+      itemId: addItem.value,
+      quantity: 1,
+      name: (d ?? m)!.name,
+      unitPriceFen: (d ?? m)!.priceFen,
+    });
+  addItem.value = "";
+}
+async function saveResultEdit() {
+  await send("edit_recommendation", {
+    expectedVersion: editingVersion.value,
+    items: editedItems.value.map((i) => ({
+      itemType: i.itemType,
+      itemId: i.itemId,
+      quantity: Number(i.quantity),
+    })),
+  });
+  if (!error.value) editingResult.value = false;
+}
 const inviteLink = computed(
   () => location.origin + "/s/" + String(route.params.code),
 );
 onMounted(() => {
+  void api<{ aiEnabled: boolean }>("/api/capabilities")
+    .then((c) => (aiEnabled.value = c.aiEnabled))
+    .catch(() => {});
   connection = connectRoom(
     String(route.params.code),
     (s) => {
@@ -63,7 +112,6 @@ onMounted(() => {
           : String(s.session.budgetPerPersonFen / 100);
       if (s.self && initialized !== s.self.id) {
         initialized = s.self.id;
-        nickname.value = s.self.nickname;
         key = `room:${s.session.roomCode}:${s.self.id}`;
         prefs.value = hasDraft(key) ? loadDraft(key) : copyJson(s.self.draft);
         if (!hasDraft(key) && hasDraft(`restaurant:${s.restaurantCode}`)) {
@@ -91,6 +139,18 @@ onMounted(() => {
 });
 onUnmounted(() => connection?.close());
 watch(
+  () => state.value?.menuVersion,
+  () => {
+    const s = state.value;
+    if (!s) return;
+    void getMenu(s.restaurantCode)
+      .then((m) => {
+        if (m.menuVersion === state.value?.menuVersion) menu.value = m;
+      })
+      .catch(() => {});
+  },
+);
+watch(
   prefs,
   (v) => {
     if (key) saveDraft(key, v);
@@ -103,7 +163,7 @@ async function send(type: string, payload: Record<string, unknown> = {}) {
   try {
     await connection?.send(type, {
       ...payload,
-      expectedVersion: state.value?.stateVersion,
+      expectedVersion: payload.expectedVersion ?? state.value?.stateVersion,
     });
   } catch (e) {
     error.value = (e as Error).message;
@@ -115,13 +175,6 @@ async function save(submit: boolean) {
   notice.value = "";
   const wishes =
     prefs.value.wantedDishIds.length + prefs.value.wantedSetMealIds.length;
-  if (nickname.value.trim() && nickname.value !== state.value?.self?.nickname) {
-    await send("join_room", {
-      code: String(route.params.code),
-      nickname: nickname.value,
-    });
-    if (error.value) return;
-  }
   await send("update_preferences", { prefs: copyJson(prefs.value), submit });
   if (!error.value && state.value?.self) {
     prefs.value = copyJson(state.value.self.draft);
@@ -225,17 +278,18 @@ const mine = computed(
     <p v-if="state?.recommendationInvalid && result" class="notice">
       需求或菜单已变化，原方案已失效，请重新推荐。
     </p>
-    <div v-if="editing" class="card">
+    <div v-if="editing" class="card preferences-card">
       <h2>我的用餐要求</h2>
-      <p class="hint">
-        {{
-          state?.self?.submitted
-            ? "之前提交的要求仍有效；再次保存后更新。"
-            : "只有点“提交本局要求”才算已填写，默认设置与草稿不会自动提交。"
-        }}
-      </p>
-      <label>本局昵称<input v-model="nickname" maxlength="40" /></label
-      ><PreferencesForm v-model="prefs" /><button
+      <PreferencesForm
+        v-model="prefs"
+        :menu="menu"
+        :menu-link="
+          state
+            ? `/r/${state.restaurantCode}/menu?room=${route.params.code}`
+            : undefined
+        "
+      /><button
+        v-if="aiEnabled"
         type="button"
         :disabled="!prefs.note.trim()"
         @click="interpret"
@@ -244,6 +298,16 @@ const mine = computed(
       </button>
       <div v-if="suggestions" class="notice">
         <p>{{ suggestions.message }}</p>
+        <p v-if="suggestions.prefs.stapleMode !== prefs.stapleMode">
+          主食：{{ stapleLabels[suggestions.prefs.stapleMode] }}
+        </p>
+        <p v-if="suggestions.prefs.wantedSpiceLevel !== prefs.wantedSpiceLevel">
+          想吃辣度：{{
+            ["不辣", "微辣", "中辣", "重辣"][
+              suggestions.prefs.wantedSpiceLevel ?? 0
+            ]
+          }}
+        </p>
         <p>
           过敏：{{
             suggestions.prefs.allergens.join("、") || "无新增"
@@ -258,18 +322,7 @@ const mine = computed(
           应用到表单（仍需提交）</button
         ><button @click="suggestions = null">不用这些建议</button>
       </div>
-      <p v-if="prefs.wantedDishIds.length || prefs.wantedSetMealIds.length">
-        已标记 {{ prefs.wantedDishIds.length }} 道菜、{{
-          prefs.wantedSetMealIds.length
-        }}
-        个套餐。
-        <RouterLink
-          v-if="state"
-          :to="`/r/${state.restaurantCode}/menu?room=${route.params.code}`"
-          >继续看菜单</RouterLink
-        >
-      </p>
-      <div class="row">
+      <div class="row preferences-actions">
         <button
           :disabled="busy || state?.session.state === 'closed'"
           @click="save(false)"
@@ -349,6 +402,85 @@ const mine = computed(
         <div class="row between">
           <h2>这一桌的推荐</h2>
           <strong>{{ money(result.draft.totalFen) }}</strong>
+        </div>
+        <template
+          v-if="result.draft.mealStatus && result.draft.mealStatus !== 'legacy'"
+        >
+          <p class="notice" role="status">
+            {{
+              result.draft.mealStatus === "complete"
+                ? "已满足当前估算用餐需求"
+                : "当前方案仍有用餐缺口"
+            }}
+            · 热菜 {{ result.draft.estimatedHotSupply }} /
+            {{ result.draft.estimatedHotNeed }} 份
+          </p>
+          <div class="meal-allocations">
+            <p v-for="m in result.draft.mealMembers" :key="m.memberId">
+              <strong>{{
+                state?.members.find((p) => p.id === m.memberId)?.nickname
+              }}</strong>
+              · 可分配热菜 {{ m.halfDishAllocated / 2 }} /
+              {{ m.halfDishNeed / 2 }} 份 ·
+              {{
+                m.stapleOptOut
+                  ? "不要主食"
+                  : (menu?.dishes.find((d) => d.id === m.stapleDishId)?.name ??
+                    "主食待补充")
+              }}
+            </p>
+          </div>
+        </template>
+        <button
+          v-if="
+            state?.session.state !== 'closed' && !state?.recommendationInvalid
+          "
+          @click="startResultEdit"
+        >
+          修改这桌方案
+        </button>
+        <div v-if="editingResult" class="result-editor">
+          <h3>保留、删菜或调整份数</h3>
+          <div
+            v-for="(i, index) in editedItems"
+            :key="`${i.itemType}:${i.itemId}`"
+            class="row"
+          >
+            <span>{{ i.name }}</span
+            ><label
+              >份数<input
+                v-model.number="i.quantity"
+                type="number"
+                min="1"
+                max="100" /></label
+            ><button @click="editedItems.splice(index, 1)">
+              移除 {{ i.name }}
+            </button>
+          </div>
+          <div class="row">
+            <select v-model="addItem" aria-label="添加菜品或套餐">
+              <option value="">选择要添加或替换的菜品</option>
+              <option
+                v-for="d in menu?.dishes.filter((d) => d.available)"
+                :key="d.id"
+                :value="d.id"
+              >
+                {{ d.name }} · {{ money(d.priceFen) }}
+              </option>
+              <option v-for="m in menu?.setMeals" :key="m.id" :value="m.id">
+                套餐：{{ m.name }}
+              </option></select
+            ><button :disabled="!addItem" @click="appendItem">加入方案</button>
+          </div>
+          <p class="hint">
+            保存时重新计算价格、个人适配和饭菜缺口；不会自动补回你移除的条目。
+          </p>
+          <div class="row">
+            <button @click="editingResult = false">取消修改</button
+            ><button class="primary" :disabled="busy" @click="saveResultEdit">
+              保存并重新校验
+            </button>
+          </div>
         </div>
         <p v-if="result.mode === 'rules'" class="notice">已切换规则推荐</p>
         <p v-if="result.draft.budgetWarning" class="notice">
@@ -451,15 +583,15 @@ const mine = computed(
           <label
             >对话调整<textarea
               v-model="chatText"
-              :disabled="result.mode !== 'ai'"
+              :disabled="!aiEnabled"
               maxlength="200"
               :placeholder="
-                result.mode === 'ai'
+                aiEnabled
                   ? '例如：再清淡一点'
-                  : '规则模式下暂不提供自由对话，可使用上方快捷操作'
+                  : '尚未配置AI，可以使用上方手动修改和快捷操作'
               "
             /></label
-          ><button :disabled="result.mode !== 'ai' || !chatText.trim() || busy">
+          ><button :disabled="!aiEnabled || !chatText.trim() || busy">
             发送调整
           </button>
         </form>
@@ -469,7 +601,7 @@ const mine = computed(
       <h2>{{ companionId ? "修改" : "补充" }}同行人的要求</h2>
       <label
         >昵称（可不填）<input v-model="companionName" maxlength="40" /></label
-      ><PreferencesForm v-model="companionPrefs" />
+      ><PreferencesForm v-model="companionPrefs" :menu="menu" />
       <div class="row">
         <button @click="companion = false">取消</button
         ><button class="primary" @click="saveCompanion">保存同行人要求</button>

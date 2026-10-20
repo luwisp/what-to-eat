@@ -51,7 +51,11 @@ const dish = ref<DishInput>(dishEmpty()),
   dishPrice = ref(""),
   ingredientText = ref(""),
   unknown = ref(false),
-  showDish = ref(false);
+  showDish = ref(false),
+  mealRole = ref("hotMain"),
+  singleServing = ref(true),
+  primaryText = ref(""),
+  vegetable = ref(false);
 const meal = ref<SetMealInput>({
     name: "",
     imageUrl: "",
@@ -129,6 +133,11 @@ async function saveRestaurant() {
   });
 }
 function editDish(value?: Dish) {
+  const fact = menu.value?.mealMetadata?.find((f) => f.dishId === value?.id);
+  mealRole.value = fact?.role ?? "hotMain";
+  singleServing.value = fact?.stapleUnits === 1 || !value;
+  primaryText.value = fact?.primaryIngredients.join("、") ?? "";
+  vegetable.value = fact?.vegetable ?? false;
   dishId.value = value?.id ?? "";
   dish.value = value ? copyJson(value) : dishEmpty();
   dishPrice.value = value ? String(value.priceFen / 100) : "";
@@ -146,6 +155,13 @@ async function saveDish() {
     if (unknown.value || !ingredients.length) ingredients.push("unknown");
     const payload = {
       ...dish.value,
+      mealRole: mealRole.value,
+      singleServing: singleServing.value,
+      primaryIngredients: primaryText.value
+        .split(/[、,，]/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+      vegetable: vegetable.value,
       priceFen: priceFen(dishPrice.value),
       ingredients,
     };
@@ -322,6 +338,28 @@ async function logout() {
           <p class="hint">此码进入餐馆；用餐时的邀请二维码由聚餐局生成。</p>
         </article>
         <form v-if="showDish" class="card" @submit.prevent="saveDish">
+          <label
+            >用餐角色<select v-model="mealRole">
+              <option value="hotMain">正餐热菜</option>
+              <option value="coldMain">凉菜</option>
+              <option value="side">小吃 / 辅食</option>
+              <option value="staple">主食</option>
+              <option value="soup">汤</option>
+              <option value="drink">饮品</option>
+            </select></label
+          ><label v-if="mealRole === 'staple'" class="choice"
+            ><input
+              v-model="singleServing"
+              type="checkbox"
+            />已核对：这一份可作为一人的主食</label
+          ><label
+            >主料（可选，须出现在食材列表中）<input
+              v-model="primaryText"
+              placeholder="用顿号分隔" /></label
+          ><label class="choice"
+            ><input v-model="vegetable" type="checkbox" />蔬菜类正餐菜</label
+          >
+
           <h2>{{ dishId ? "编辑" : "新增" }}菜品</h2>
           <div class="grid">
             <label>名称<input v-model="dish.name" required /></label

@@ -69,7 +69,7 @@ public class ToolRegistry {
                         }
                     }
                 case "propose_items" =>
-                    let result = validateRecommendation(input, parseProposedItems(args["items"]))
+                    let result = checkMealRecommendation(input, parseProposedItems(args["items"]))
                     match (result) {
                         case Ok(draft) => return Outcome.Ok(draft.toJson());
                         case Err(e) => return Outcome.Err(e)

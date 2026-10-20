@@ -1,17 +1,18 @@
 # Huaiwei
 
-仓颉1.2.0的多人聚餐点菜项目。当前已实现平台和共享骨架
+仓颉1.2.0的多人聚餐点菜项目。已接通 SQLite、账号、商家菜单、多人聚餐和 v3 推荐
 
 ```sh
 export HUAIWEI_CANGJIE_SDK=/path/to/cangjie
 bash scripts/bootstrap-deps.sh --local-tools  # 可选conda内Clang15/OpenSSL3.5
 npm ci
+npm --prefix frontend ci
 bash scripts/cj.sh build -j 4
 bash scripts/cj.sh exec target/release/bin/huaiwei
 bash scripts/check-platform.sh
 ```
 
-已有适配的Clang15/完整OpenSSL开发头文件时，bootstrap可省略`--local-tools`。首次stdx源码编译需等待；默认服务`127.0.0.1:8080`，环境变量`HUAIWEI_HOST/HUAIWEI_PORT`可覆盖。当前真实端点为`GET /health`；未完成业务API不会以原型模拟。
+已有适配的Clang15/完整OpenSSL开发头文件时，bootstrap可省略`--local-tools`。首次stdx源码编译需等待；默认服务`127.0.0.1:8080`，环境变量`HUAIWEI_HOST/HUAIWEI_PORT`可覆盖。业务服务通过 `bash scripts/dev.sh` 初始化并启动；首次会导入老乡鸡菜单，餐馆码 `LAOXIANGJI`。后续启动保留商家修改，仅恢复构建清理的图片。
 
 共享模型源在`scripts/generate-models.py`，生成`src/model/entities.cj`。模型字段改变后运行`python3 scripts/generate-models.py`。`src/model/contracts.cj`为目录/身份端口，`src/store/repository.cj`定义隔离快照与原子事务。`src/platform/http.cj`的`HttpRouter.on(method,path,handler)`支持`:id`路径参数和方法分发，`jsonResponse/jsonError`统一JSON。服务装配在`src/app/server.cj`。
 

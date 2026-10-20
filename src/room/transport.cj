@@ -334,6 +334,7 @@ public class DiningTransport {
                 optionalBudget(payload))
             case "confirm_recommendation" => RoomCommand.Confirm(payload["id"].asString().getValue(),
                 payload["version"].asInt().getValue())
+            case "edit_recommendation" => RoomCommand.EditResult(parseProposedItems(payload["items"]))
             case "reopen_recommendation" => RoomCommand.Reopen
             case _ => throw RoomFault("UNKNOWN_COMMAND", "未知操作")
         }

@@ -23,7 +23,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 APP_ID = 0x48574D49
 COLLECTIONS = ('users merchants authSessions visitorSessions defaultSettings restaurants '
                'menuVersions dishes setMeals sessions participants recommendations '
-               'chatMessages dedupeRecords jobs').split()
+               'chatMessages dedupeRecords jobs mealMetadata').split()
 CATEGORIES = {'凉菜': 'cold', '热菜': 'hot', '汤': 'soup', '主食': 'staple',
               '饮品': 'drink', '饮料': 'drink', '面点': 'staple', '面条': 'staple',
               '馄饨': 'staple', '辅食': 'hot', '小吃': 'hot',
@@ -224,6 +224,7 @@ def import_menu(args):
             init_database(connection)
             stored = connection.execute('SELECT payload_json FROM app_snapshot WHERE id=1').fetchone()
             snapshot = json.loads(stored[0]) if stored else {'schemaVersion': 1, **{k: [] for k in COLLECTIONS}}
+            snapshot.setdefault("mealMetadata", [])
             validate_snapshot(snapshot)
             restaurant = next((r for r in snapshot['restaurants'] if r['restaurantCode'] == args.restaurant_code), None)
             previous = connection.execute('SELECT restaurant_id,dish_ids_json FROM menu_imports WHERE source_key=?',
@@ -252,10 +253,24 @@ def import_menu(args):
                     dish['available'] = False  # Retain references from historical rooms and set meals.
                 others.append(dish)
             snapshot['dishes'] = others + dishes
+            # Roles are derived from the imported original category, not the collapsed display category.
+            reviewed = json.loads((PROJECT_ROOT / 'data/fixtures/meal-annotations.json').read_text()).get(args.restaurant_code, {})
+            roles = {'热菜':'hotMain','凉菜':'coldMain','辅食':'side','小吃':'side','汤':'soup',
+                     '主食':'staple','面点':'staple','面条':'staple','馄饨':'staple','饮料':'drink','饮品':'drink'}
+            facts = []
+            for d, source in zip(dishes, provenance):
+                a = reviewed.get(d['name'], {})
+                primary = [i for i in a.get('primaryIngredients', []) if i in d['ingredients']]
+                facts.append(dict(dishId=d['id'],role=roles.get(source['original']['分类'],'unknown'),
+                    vegetable=bool(a.get('vegetable',False)) and bool(primary),primaryIngredients=primary,
+                    stapleUnits=a.get('stapleUnits'),stapleKind=a.get('stapleKind','other'),
+                    soupGroupId=a.get('soupGroupId',''),servesMax=a.get('servesMax')))
+            snapshot['mealMetadata'] = [f for f in snapshot['mealMetadata'] if f['dishId'] not in (old_ids | new_ids)] + facts
             # Compare independent of array ordering; reimporting the same menu is a no-op.
             before = json.loads(old_snapshot)
             changed = (sorted(before['restaurants'], key=lambda r: r['id']) != sorted(snapshot['restaurants'], key=lambda r: r['id'])
-                       or sorted(before['dishes'], key=lambda d: d['id']) != sorted(snapshot['dishes'], key=lambda d: d['id']))
+                       or sorted(before['dishes'], key=lambda d: d['id']) != sorted(snapshot['dishes'], key=lambda d: d['id'])
+                       or sorted(before.get('mealMetadata', []), key=lambda f:f['dishId']) != sorted(snapshot['mealMetadata'], key=lambda f:f['dishId']))
             version = next((v for v in snapshot['menuVersions'] if v['restaurantId'] == restaurant_id), None)
             if version is None:
                 version = {'restaurantId': restaurant_id, 'menuVersion': 0}
