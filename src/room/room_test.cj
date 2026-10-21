@@ -42,6 +42,22 @@ class TestClock <: Clock {
 @Test
 class RoomTests {
     @TestCase
+    func entryResolverIsReadOnlyAndRejectsLegacyAmbiguity() {
+        let repo = TestRepository()
+        let clock = TestClock()
+        let service = RoomService(repo, clock)
+        let room = service.create(Actor(visitorId: Some("h")), CreateSessionInput(restaurantCode: "TEST"), "entry").unwrap()
+        @Expect(room.session.roomCode.startsWith("J"), true)
+        @Expect(service.resolveEntry("test").unwrap()["kind"].asString().getValue(), "restaurant")
+        @Expect(service.resolveEntry(room.session.roomCode.toAsciiLower()).unwrap()["kind"].asString().getValue(), "room")
+        @Expect(repo.read().participants.size, 1)
+        @Expect(service.resolveEntry("missing").isOk(), false)
+        repo.data.restaurants = repo.data.restaurants.concat([Restaurant(id: "other", restaurantCode: room.session.roomCode)])
+        @Expect(service.resolveEntry(room.session.roomCode).isOk(), false)
+        clock.now += 86400001
+        @Expect(service.resolveEntry(room.session.roomCode).unwrap()["kind"].asString().getValue(), "restaurant")
+    }
+    @TestCase
     func conflictingWishesAreRemovedAndExpiredRoomsArePruned() {
         let repo = TestRepository()
         repo.data.dishes = [Dish(id: "chicken", restaurantId: "r", name: "鸡肉", ingredients: ["鸡肉"])]

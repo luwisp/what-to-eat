@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
+import { api } from "../../shared/api";
 import { resolveEntry } from "./entry";
 import { scanCode } from "./scan";
 import AppIcon from "../../shared/AppIcon.vue";
@@ -8,17 +9,37 @@ const router = useRouter(),
   code = ref(""),
   error = ref(""),
   scanning = ref(false),
+  entering = ref(false),
   video = ref<HTMLVideoElement>();
 let controller: AbortController | undefined;
-function enter(value = code.value) {
+async function enter(value = code.value) {
+  if (entering.value) return;
+  error.value = "";
   const result = resolveEntry(value, location.origin);
   if (!result) {
-    error.value = "请输入有效的餐馆码，或扫描本站餐馆／邀请二维码";
+    error.value = "请输入餐馆码、聚餐码或本站链接";
     return;
   }
-  void router.push(
-    `/${result.kind === "restaurant" ? "r" : "s"}/${result.code}`,
-  );
+  entering.value = true;
+  try {
+    const destination =
+      result.kind === "short"
+        ? await api<{ kind: "restaurant" | "room"; code: string }>(
+            `/api/entry/${encodeURIComponent(result.code)}`,
+          )
+        : result;
+    if (destination.kind === "restaurant")
+      await api(
+        `/api/restaurants/${encodeURIComponent(destination.code)}/menu`,
+      );
+    await router.push(
+      `/${destination.kind === "restaurant" ? "r" : "s"}/${destination.code}`,
+    );
+  } catch (e) {
+    error.value = (e as Error).message;
+  } finally {
+    entering.value = false;
+  }
 }
 async function scan() {
   error.value = "";
@@ -26,9 +47,10 @@ async function scan() {
   controller = new AbortController();
   await import("vue").then((v) => v.nextTick());
   try {
-    if (video.value) enter(await scanCode(video.value, controller.signal));
+    if (video.value)
+      await enter(await scanCode(video.value, controller.signal));
   } catch {
-    error.value = "未能读取二维码。你也可以直接输入餐馆码。";
+    error.value = "未能读取二维码。也可以直接输入餐馆码或聚餐码。";
   } finally {
     scanning.value = false;
   }
@@ -58,16 +80,18 @@ onUnmounted(() => controller?.abort());
         <button @click="controller?.abort()">停止扫码</button>
       </div>
       <form class="code-entry" @submit.prevent="enter()">
-        <label for="restaurant-code">或输入餐馆码</label>
+        <label for="restaurant-code">或输入餐馆码 / 聚餐码</label>
         <div class="entry-input">
           <AppIcon name="store" :size="20" />
           <input
             id="restaurant-code"
             v-model="code"
-            placeholder="餐馆提供的短码"
-            maxlength="64"
+            placeholder="餐馆码、聚餐码或邀请链接"
+            maxlength="512"
           />
-          <button class="primary" type="submit">进入餐馆</button>
+          <button class="primary" type="submit" :disabled="entering">
+            {{ entering ? "正在查找…" : "进入" }}
+          </button>
         </div>
       </form>
       <p v-if="error" role="alert" class="error">{{ error }}</p>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, nextTick } from "vue";
 import type { Preferences, MenuSnapshot } from "./contracts";
 const prefs = defineModel<Preferences>({ required: true });
 const otherAvoid = ref(""),
@@ -89,20 +89,87 @@ function toggle(
       : [...values, value],
   };
 }
+
+const appetiteValues = ["small", "normal", "large", "extraLarge"];
+const appetiteLabels = ["小", "正常", "大", "特别大"];
+const appetiteIndex = computed({
+  get: () => Math.max(0, appetiteValues.indexOf(prefs.value.appetite)),
+  set: (v: number) => {
+    prefs.value.appetite = appetiteValues[v] ?? "normal";
+  },
+});
+const spiceLabels = ["不吃辣", "微辣", "中辣", "重辣", "都可以"];
+const spiceIndex = computed({
+  get: () => prefs.value.maxSpiceLevel ?? 4,
+  set: (v: number) => {
+    prefs.value.maxSpiceLevel = v === 4 ? null : v;
+  },
+});
+const addingAvoid = ref(false),
+  addingAllergen = ref(false);
+const avoidInput = ref<HTMLInputElement>(),
+  allergenInput = ref<HTMLInputElement>();
+async function showAdd(allergy = false) {
+  if (allergy) addingAllergen.value = true;
+  else addingAvoid.value = true;
+  await nextTick();
+  (allergy ? allergenInput : avoidInput).value?.focus();
+}
+const avoidOptions = ["香菜", "葱", "蒜", "羊肉", "牛肉", "猪肉", "内脏"];
+const allergenOptions = [
+  "花生",
+  "鱼",
+  "虾蟹",
+  "贝类",
+  "鸡蛋",
+  "奶",
+  "大豆",
+  "小麦",
+  "芝麻",
+];
 </script>
 <template>
-  <div class="preferences preferences-simple">
-    <fieldset>
-      <legend>食量</legend>
-      <select v-model="prefs.appetite" aria-label="食量">
-        <option value="small">小</option>
-        <option value="normal">正常</option>
-        <option value="large">大</option>
-        <option value="extraLarge">特别大</option>
-      </select>
-    </fieldset>
-    <fieldset>
-      <legend>口味</legend>
+  <div class="preferences preferences-compact">
+    <div class="preference-range">
+      <div class="preference-label">
+        <span>食量</span
+        ><span class="range-value">{{ appetiteLabels[appetiteIndex] }}</span>
+      </div>
+      <input
+        v-model.number="appetiteIndex"
+        type="range"
+        min="0"
+        max="3"
+        step="1"
+        aria-label="食量"
+        :aria-valuetext="appetiteLabels[appetiteIndex]"
+        :style="{ '--range-fill': (appetiteIndex / 3) * 100 + '%' }"
+      />
+      <div class="range-labels">
+        <span v-for="v in appetiteLabels" :key="v">{{ v }}</span>
+      </div>
+    </div>
+    <div class="preference-range">
+      <div class="preference-label">
+        <span>能吃多辣</span
+        ><span class="range-value">{{ spiceLabels[spiceIndex] }}</span>
+      </div>
+      <input
+        v-model.number="spiceIndex"
+        type="range"
+        min="0"
+        max="4"
+        step="1"
+        aria-label="接受辣度"
+        :aria-valuetext="spiceLabels[spiceIndex]"
+        :style="{ '--range-fill': (spiceIndex / 4) * 100 + '%' }"
+      />
+      <div class="range-labels">
+        <span v-for="v in spiceLabels" :key="v">{{ v }}</span>
+      </div>
+    </div>
+    <div class="preference-inline">
+      <span class="preference-label">口味</span>
       <div class="chips">
         <button
           v-for="v in ['清淡', '咸鲜', '酸甜']"
@@ -113,32 +180,20 @@ function toggle(
         >
           {{ v }}
         </button>
+        <select v-model="prefs.dietMode" aria-label="饮食方式">
+          <option
+            v-for="option in dietOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
+        </select>
       </div>
-      <select v-model="prefs.maxSpiceLevel" aria-label="接受辣度">
-        <option :value="null">辣度都可以</option>
-        <option
-          v-for="(label, i) in ['不辣', '微辣', '中辣', '重辣']"
-          :key="i"
-          :value="i"
-        >
-          {{ i === 0 ? "不吃辣" : "最多" + label }}
-        </option>
-      </select>
-      <div class="chips diet-options">
-        <button
-          v-for="option in dietOptions"
-          :key="option.value"
-          type="button"
-          :aria-pressed="prefs.dietMode === option.value"
-          @click="prefs.dietMode = option.value"
-        >
-          {{ option.label }}
-        </button>
-      </div>
-    </fieldset>
-    <fieldset>
-      <legend>想吃</legend>
-      <div class="chips">
+    </div>
+    <div class="preference-block">
+      <span class="preference-label">想吃</span>
+      <div class="chips wish-options">
         <button
           v-for="v in props.defaultsOnly
             ? ['鱼', '鸡肉', '蔬菜', '汤']
@@ -150,12 +205,7 @@ function toggle(
         >
           {{ v }}
         </button>
-      </div>
-      <template v-if="!props.defaultsOnly">
-        <div
-          v-if="selectedDishes.length || selectedMeals.length"
-          class="chips selected-wishes"
-        >
+        <template v-if="!props.defaultsOnly">
           <button
             v-for="d in selectedDishes"
             :key="d.id"
@@ -176,163 +226,165 @@ function toggle(
           >
             {{ d.name }} ×
           </button>
-        </div>
-        <RouterLink v-if="menuLink" :to="menuLink" class="menu-wish-link"
-          >看菜单，选想吃的菜 →</RouterLink
-        >
-        <details v-if="props.menu" class="ingredient-picker">
-          <summary>
-            按食材选<span v-if="prefs.wantedIngredients.length">
-              · {{ prefs.wantedIngredients.join("、") }}</span
-            >
-          </summary>
-          <div class="chips" v-if="prefs.wantedIngredients.length">
-            <button
-              v-for="i in prefs.wantedIngredients"
-              :key="i"
-              type="button"
-              aria-pressed="true"
-              @click="toggle('wantedIngredients', i)"
-            >
-              {{ i }} ×
-            </button>
-          </div>
-          <input
-            v-model="ingredientSearch"
-            aria-label="搜索本店食材"
-            placeholder="搜索食材"
-          />
-          <div class="chips ingredient-options">
-            <button
-              v-for="i in shownIngredients"
-              :key="i"
-              type="button"
-              :aria-pressed="prefs.wantedIngredients.includes(i)"
-              @click="toggle('wantedIngredients', i)"
-            >
-              {{ i }}
-            </button>
-          </div>
-          <button
-            v-if="ingredients.length > 12 && !ingredientSearch"
-            class="preference-more"
-            type="button"
-            @click="showAllIngredients = !showAllIngredients"
+          <RouterLink
+            v-if="menuLink"
+            :to="menuLink"
+            class="add-chip"
+            aria-label="看菜单，选想吃的菜 →"
+            >＋ 菜单选菜</RouterLink
           >
-            {{ showAllIngredients ? "收起" : "更多食材" }}
-          </button>
-        </details>
-      </template>
-    </fieldset>
-    <fieldset>
-      <legend>不吃</legend>
-      <div class="chips">
-        <button
-          v-for="value in ['香菜', '葱', '蒜', '羊肉', '牛肉', '猪肉', '内脏']"
-          :key="value"
-          type="button"
-          :aria-pressed="prefs.avoidFoods.includes(value)"
-          @click="toggle('avoidFoods', value)"
-        >
-          {{ value }}
-        </button>
+        </template>
       </div>
-      <div class="row">
+      <details
+        v-if="!props.defaultsOnly && props.menu"
+        class="ingredient-picker"
+      >
+        <summary>
+          按食材选<span v-if="prefs.wantedIngredients.length">
+            · {{ prefs.wantedIngredients.join("、") }}</span
+          >
+        </summary>
         <input
-          v-model="otherAvoid"
-          aria-label="其他不吃的食物"
-          placeholder="其他不吃的食物（可选）"
-          maxlength="50"
-        /><button type="button" @click="add('avoidFoods')">添加</button>
-      </div>
-      <div class="chips">
-        <button
-          v-for="value in prefs.avoidFoods.filter(
-            (v) =>
-              !['香菜', '葱', '蒜', '羊肉', '牛肉', '猪肉', '内脏'].includes(v),
-          )"
-          :key="value"
-          type="button"
-          aria-pressed="true"
-          @click="toggle('avoidFoods', value)"
-        >
-          {{ value }} ×
-        </button>
-      </div>
-    </fieldset>
-
-    <details class="allergy-picker" :open="prefs.allergens.length > 0">
-      <summary>
-        过敏<span class="allergy-summary">{{ allergySummary }}</span>
-      </summary>
-      <fieldset class="allergen-field">
-        <legend>
-          过敏<span v-if="prefs.allergens.length">
-            · 已选{{ prefs.allergens.length }}项</span
-          >
-        </legend>
-        <div class="chips">
+          v-model="ingredientSearch"
+          aria-label="搜索本店食材"
+          placeholder="搜索食材"
+        />
+        <div class="chips ingredient-options">
           <button
-            v-for="value in [
-              '花生',
-              '鱼',
-              '虾蟹',
-              '贝类',
-              '鸡蛋',
-              '奶',
-              '大豆',
-              '小麦',
-              '芝麻',
-            ]"
-            :key="value"
+            v-for="i in shownIngredients"
+            :key="i"
             type="button"
-            :aria-pressed="prefs.allergens.includes(value)"
-            @click="toggle('allergens', value)"
+            :aria-pressed="prefs.wantedIngredients.includes(i)"
+            @click="toggle('wantedIngredients', i)"
           >
-            {{ value }}
+            {{ i }}
           </button>
         </div>
-        <div class="row">
-          <input
-            v-model="otherAllergen"
-            aria-label="其他过敏食物"
-            placeholder="其他过敏食物（可选）"
-            maxlength="50"
-          /><button type="button" @click="add('allergens')">添加</button>
-        </div>
-        <div class="chips">
+        <div
+          v-if="
+            prefs.wantedIngredients.some((i) => !shownIngredients.includes(i))
+          "
+          class="chips"
+        >
           <button
-            v-for="value in prefs.allergens.filter(
-              (v) =>
-                ![
-                  '花生',
-                  '鱼',
-                  '虾蟹',
-                  '贝类',
-                  '鸡蛋',
-                  '奶',
-                  '大豆',
-                  '小麦',
-                  '芝麻',
-                ].includes(v),
+            v-for="i in prefs.wantedIngredients.filter(
+              (i) => !shownIngredients.includes(i),
             )"
-            :key="value"
+            :key="i"
             type="button"
             aria-pressed="true"
-            @click="toggle('allergens', value)"
+            @click="toggle('wantedIngredients', i)"
           >
-            {{ value }} ×
+            {{ i }} ×
           </button>
         </div>
-        <p class="hint">已提交的过敏项用于全桌食材过滤。</p>
-      </fieldset>
+        <button
+          v-if="ingredients.length > 12 && !ingredientSearch"
+          type="button"
+          class="preference-more"
+          @click="showAllIngredients = !showAllIngredients"
+        >
+          {{ showAllIngredients ? "收起" : "更多食材" }}
+        </button>
+      </details>
+    </div>
+    <div class="preference-block">
+      <span class="preference-label">不吃</span>
+      <div class="chips">
+        <button
+          v-for="v in [
+            ...avoidOptions,
+            ...prefs.avoidFoods.filter((v) => !avoidOptions.includes(v)),
+          ]"
+          :key="v"
+          type="button"
+          :aria-pressed="prefs.avoidFoods.includes(v)"
+          @click="toggle('avoidFoods', v)"
+        >
+          {{ v }}
+        </button>
+        <form
+          v-if="addingAvoid"
+          class="inline-add"
+          @submit.prevent="
+            add('avoidFoods');
+            addingAvoid = false;
+          "
+        >
+          <input
+            ref="avoidInput"
+            v-model="otherAvoid"
+            aria-label="其他不吃的食物"
+            placeholder="食物名"
+            maxlength="50"
+          /><button type="submit" aria-label="添加不吃的食物">✓</button
+          ><button
+            type="button"
+            aria-label="取消添加不吃的食物"
+            @click="addingAvoid = false"
+          >
+            ×
+          </button>
+        </form>
+        <button v-else class="add-chip" type="button" @click="showAdd()">
+          ＋ 其他
+        </button>
+      </div>
+    </div>
+    <details class="allergy-picker" :open="prefs.allergens.length > 0">
+      <summary>
+        {{
+          prefs.allergens.length ? "过敏 · " + allergySummary : "有食物过敏？"
+        }}
+      </summary>
+      <div class="chips">
+        <button
+          v-for="v in [
+            ...allergenOptions,
+            ...prefs.allergens.filter((v) => !allergenOptions.includes(v)),
+          ]"
+          :key="v"
+          type="button"
+          :aria-pressed="prefs.allergens.includes(v)"
+          @click="toggle('allergens', v)"
+        >
+          {{ v }}
+        </button>
+        <form
+          v-if="addingAllergen"
+          class="inline-add"
+          @submit.prevent="
+            add('allergens');
+            addingAllergen = false;
+          "
+        >
+          <input
+            ref="allergenInput"
+            v-model="otherAllergen"
+            aria-label="其他过敏食物"
+            placeholder="过敏食物"
+            maxlength="50"
+          /><button type="submit" aria-label="添加过敏食物">✓</button
+          ><button
+            type="button"
+            aria-label="取消添加过敏食物"
+            @click="addingAllergen = false"
+          >
+            ×
+          </button>
+        </form>
+        <button v-else type="button" class="add-chip" @click="showAdd(true)">
+          ＋ 其他过敏
+        </button>
+      </div>
     </details>
-    <label v-if="!props.defaultsOnly" class="preference-note"
-      >还有想说的？<textarea
-        v-model="prefs.note"
-        maxlength="200"
-        placeholder="例如：今天不吃米饭，想来一道鱼。"
-      />
-    </label>
+    <textarea
+      v-if="!props.defaultsOnly"
+      v-model="prefs.note"
+      class="preference-note"
+      aria-label="还有想说的？"
+      maxlength="200"
+      placeholder="还有想说的？比如今天想清淡点，大家一起少点一道菜…"
+    />
   </div>
 </template>

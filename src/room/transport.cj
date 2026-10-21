@@ -107,6 +107,12 @@ public class DiningTransport {
         session.actor
     }
     public func register(router: HttpRouter): Unit {
+        router.on("GET", "/api/entry/:code", {ctx, params =>
+            match (rooms.resolveEntry(params["code"])) {
+                case Ok(value) => jsonResponse(ctx, 200, value);
+                case Err(e) => jsonError(ctx, e.status, e.code, e.message)
+            }
+        })
         router.on("POST", "/api/preferences/interpret", {
             ctx, _ => try {
                 checkOrigin(ctx)
@@ -278,6 +284,7 @@ public class DiningTransport {
                 }
             }
             if (begin) {
+                broadcast(connection.code)
                 let code = connection.code
                 spawn {
                     try {
@@ -291,7 +298,7 @@ public class DiningTransport {
                         } else if (work.adjustment.isSome()) {
                             match (coordinator.calculate(work)) {
                                 case Ok(draft) => Outcome<AssistantResult>.Ok(
-                                    AssistantResult(draft, "rules", "已切换规则推荐"));
+                                    AssistantResult(draft, "rules", "已按这一桌的要求重新搭配，你看看这次合不合适。"));
                                 case Err(e) => Outcome<AssistantResult>.Err(e)
                             }
                         } else {

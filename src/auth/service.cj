@@ -14,8 +14,9 @@ public class AuthService <: IdentityResolver {
         this.publicOrigin = publicOrigin
     }
     public func register(kind: AccountKind, login: String, password: String): Outcome<AccountView> {
-        if (!validCredentials(login, password)) {
-            return Outcome.Err(DomainError("INVALID_INPUT", "账号或密码格式无效"))
+        let problem = credentialProblem(login, password)
+        if (!problem.isEmpty()) {
+            return Outcome.Err(DomainError("INVALID_INPUT", problem))
         }
         let digest = hashPassword(password)
         let id = randomToken()
@@ -182,16 +183,19 @@ public class AuthService <: IdentityResolver {
     }
 }
 
-func validCredentials(login: String, password: String): Bool {
-    if (login.isEmpty() || login.size > 128 || password.size < 8 || password.size > 1024) {
-        return false
-    }
+func credentialProblem(login: String, password: String): String {
+    if (login.isEmpty()) { return "请输入账号" }
+    if (login.size > 128) { return "账号过长，最多128字节" }
     for (b in login.toArray()) {
-        if (b <= 32 || b == 127) {
-            return false
-        }
+        if (b <= 32 || b == 127) { return "账号不能包含空格、换行或控制字符" }
     }
-    true
+    if (password.size < 8) { return "密码太短，至少需要8字节（英文或数字至少8位）" }
+    if (password.size > 1024) { return "密码过长，最多1024字节" }
+    ""
+}
+
+func validCredentials(login: String, password: String): Bool {
+    credentialProblem(login, password).isEmpty()
 }
 
 func invalidLogin(): Outcome<AuthSession> {

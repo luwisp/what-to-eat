@@ -94,6 +94,9 @@ async function logout() {
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
     <form v-if="!account" class="card" @submit.prevent="submit">
       <h2>{{ registering ? "注册" : "登录" }}</h2>
+      <p v-if="registering" class="hint">
+        账号不能含空格；密码至少8字节，建议使用8位以上英文或数字。
+      </p>
       <label
         >账号<input
           v-model="login"
@@ -105,6 +108,7 @@ async function logout() {
           v-model="password"
           type="password"
           :autocomplete="registering ? 'new-password' : 'current-password'"
+          :placeholder="registering ? '建议至少8位英文或数字' : '请输入密码'"
           required /></label
       ><button class="primary">{{ registering ? "注册账号" : "登录" }}</button
       ><button type="button" @click="registering = !registering">

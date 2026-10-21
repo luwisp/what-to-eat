@@ -16,8 +16,18 @@ describe("entry boundaries", () => {
       resolveEntry("javascript:alert(1)", "https://dining.test"),
     ).toBeNull();
     expect(resolveEntry("TEST", "https://dining.test")).toEqual({
-      kind: "restaurant",
+      kind: "short",
       code: "TEST",
+    });
+  });
+  it("accepts prefixed room links and leaves bare codes to the server", () => {
+    expect(resolveEntry("JABC123", "https://dining.test")).toEqual({
+      kind: "short",
+      code: "JABC123",
+    });
+    expect(resolveEntry("/s/JABC123", "https://dining.test")).toEqual({
+      kind: "room",
+      code: "JABC123",
     });
   });
   it("allows only internal return paths", () => {

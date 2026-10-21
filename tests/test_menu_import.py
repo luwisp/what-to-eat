@@ -149,6 +149,23 @@ class MenuImportTests(unittest.TestCase):
             menu.import_menu(self.args)
         self.assertEqual(self.snapshot()['schemaVersion'], 99)
 
+    def test_short_code_collisions_are_rejected_without_writing(self):
+        menu.import_menu(self.args)
+        before = self.snapshot()
+        before['sessions'] = [dict(id='room', roomCode=self.args.restaurant_code.lower())]
+        with sqlite3.connect(self.args.db) as db:
+            db.execute('UPDATE app_snapshot SET payload_json=?', (menu.dumps(before),))
+        with self.assertRaisesRegex(ValueError, '聚餐码冲突'):
+            menu.import_menu(self.args)
+        self.assertEqual(self.snapshot(), before)
+        before['sessions'] = []
+        with sqlite3.connect(self.args.db) as db:
+            db.execute('UPDATE app_snapshot SET payload_json=?', (menu.dumps(before),))
+        self.args.restaurant_code = self.args.restaurant_code.lower()
+        with self.assertRaisesRegex(ValueError, '大小写冲突'):
+            menu.import_menu(self.args)
+        self.assertEqual(self.snapshot(), before)
+
     def test_dry_run_writes_nothing_and_formula_is_not_executed(self):
         self.args.dry_run = True
         self.assertTrue(menu.import_menu(self.args)['dryRun'])

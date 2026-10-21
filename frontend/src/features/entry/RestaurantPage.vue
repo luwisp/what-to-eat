@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getMenu, createRoom, priceFen } from "../../shared/api";
+import { ApiError, getMenu, createRoom, priceFen } from "../../shared/api";
 import AppIcon from "../../shared/AppIcon.vue";
 import type { MenuSnapshot } from "../../shared/contracts";
 const route = useRoute(),
@@ -10,17 +10,24 @@ const route = useRoute(),
   people = ref(4),
   budget = ref(""),
   error = ref(""),
-  busy = ref(false);
+  busy = ref(false),
+  missing = ref(false),
+  loading = ref(true);
 let requestId = crypto.randomUUID();
 watch([people, budget], () => {
   requestId = crypto.randomUUID();
 });
 async function load() {
+  loading.value = true;
   try {
     menu.value = await getMenu(String(route.params.code));
     error.value = "";
+    missing.value = false;
   } catch (e) {
     error.value = (e as Error).message;
+    missing.value = e instanceof ApiError && e.status === 404;
+  } finally {
+    loading.value = false;
   }
 }
 onMounted(load);
@@ -86,7 +93,12 @@ async function create() {
       </button>
     </form>
   </section>
-  <div v-if="error" class="error" role="alert">
-    {{ error }} <button @click="load">重试</button>
-  </div>
+  <section v-if="error" class="entry-empty card" role="alert">
+    <AppIcon name="store" :size="44" />
+    <h1>{{ missing ? "没有找到这家餐馆" : "暂时无法加载餐馆" }}</h1>
+    <p>{{ missing ? "可能是餐馆码写错了，回首页重新输入吧。" : error }}</p>
+    <RouterLink to="/" class="button primary">回首页重新输入</RouterLink>
+    <button v-if="!missing" :disabled="loading" @click="load">重新加载</button>
+  </section>
+  <p v-else-if="loading" role="status">正在打开餐馆…</p>
 </template>

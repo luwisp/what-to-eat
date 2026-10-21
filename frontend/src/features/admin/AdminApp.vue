@@ -233,6 +233,9 @@ async function logout() {
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
     <form v-if="!account" class="card narrow" @submit.prevent="authenticate">
       <h1>{{ registering ? "商家注册" : "商家登录" }}</h1>
+      <p v-if="registering" class="hint">
+        账号不能含空格；密码至少8字节，建议使用8位以上英文或数字。
+      </p>
       <label
         >账号<input v-model="login" autocomplete="username" required /></label
       ><label
@@ -240,6 +243,7 @@ async function logout() {
           v-model="password"
           type="password"
           :autocomplete="registering ? 'new-password' : 'current-password'"
+          :placeholder="registering ? '建议至少8位英文或数字' : '请输入密码'"
           required
       /></label>
       <div class="row">

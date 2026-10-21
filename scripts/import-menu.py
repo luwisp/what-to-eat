@@ -226,6 +226,10 @@ def import_menu(args):
             snapshot = json.loads(stored[0]) if stored else {'schemaVersion': 1, **{k: [] for k in COLLECTIONS}}
             snapshot.setdefault("mealMetadata", [])
             validate_snapshot(snapshot)
+            if any(r.get('roomCode', '').lower() == args.restaurant_code.lower() for r in snapshot['sessions']):
+                raise ValueError('餐馆码与已有聚餐码冲突，请改用其他餐馆码')
+            if any(r['restaurantCode'].lower() == args.restaurant_code.lower() and r['restaurantCode'] != args.restaurant_code for r in snapshot['restaurants']):
+                raise ValueError('餐馆码与已有餐馆码大小写冲突')
             restaurant = next((r for r in snapshot['restaurants'] if r['restaurantCode'] == args.restaurant_code), None)
             previous = connection.execute('SELECT restaurant_id,dish_ids_json FROM menu_imports WHERE source_key=?',
                                           (args.source_key,)).fetchone()
@@ -330,7 +334,7 @@ def parser():
     cli.add_argument('--restaurant-code', default='LAOXIANGJI')
     cli.add_argument('--restaurant-name', default='老乡鸡')
     cli.add_argument('--owner-id', default='', help='已有商家 ID；留空表示未分配，不创建账号')
-    cli.add_argument('--description', default='从老乡鸡菜谱 Excel 导入，价格和配料以源文件为准。')
+    cli.add_argument('--description', default='老乡鸡是一家以中式快餐为特色的连锁餐饮品牌，从养土鸡起家，实现了从养殖到餐桌的全产业链模式。')
     cli.add_argument('--assets-dir', type=Path, default=PROJECT_ROOT / 'web/menu-images')
     cli.add_argument('--image-url-prefix', default='/menu-images')
     cli.add_argument('--snapshot-out', type=Path, help='可选导出完整 DatabaseSnapshot JSON')

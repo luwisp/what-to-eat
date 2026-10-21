@@ -241,6 +241,28 @@ public class RoomService {
         }
         p
     }
+    // Resolve both short-code namespaces without joining or modifying a room.
+    public func resolveEntry(code: String): Outcome<JsonObject> {
+        let db = repository.read()
+        let needle = code.trimAscii().toAsciiLower()
+        let restaurants = db.restaurants.filter({r => r.restaurantCode.toAsciiLower() == needle})
+        let sessions = db.sessions.filter({r => r.roomCode.toAsciiLower() == needle && r.expiresAt > clock.wallMillis()})
+        if (restaurants.size + sessions.size > 1) {
+            return Outcome.Err(DomainError("AMBIGUOUS_CODE", "这个旧短码有重复，请使用完整餐馆或邀请链接", status: 409))
+        }
+        let result = JsonObject()
+        if (!restaurants.isEmpty()) {
+            result.put("kind", JsonString("restaurant"))
+            result.put("code", JsonString(restaurants[0].restaurantCode))
+        } else if (!sessions.isEmpty()) {
+            result.put("kind", JsonString("room"))
+            result.put("code", JsonString(sessions[0].roomCode))
+        } else {
+            return Outcome.Err(DomainError("NOT_FOUND", "没有找到这个餐馆或聚餐局，请核对短码", status: 404))
+        }
+        Outcome.Ok(result)
+    }
+
     public func create(actor: Actor, input: CreateSessionInput, requestId: String): Outcome<RoomSnapshot> {
         transaction(
             {
@@ -264,8 +286,9 @@ public class RoomService {
                     demand(restaurant.isSome(), "NOT_FOUND", "餐馆不存在", status: 404)
                     var code = ""
                     for (_ in 0..32) {
-                        let proposed = newId()[0..6]
-                        if (!db.sessions.any({s => s.roomCode == proposed})) {
+                        let proposed = "J" + newId()[0..6]
+                        if (!db.sessions.any({s => s.roomCode.toAsciiLower() == proposed.toAsciiLower()}) &&
+                            !db.restaurants.any({r => r.restaurantCode.toAsciiLower() == proposed.toAsciiLower()})) {
                             code = proposed
                             break
                         }

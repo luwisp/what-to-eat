@@ -85,8 +85,18 @@ public func registerCatalogRoutes(router: HttpRouter, repository: Repository, au
                                 "一个商家只能创建一家餐馆", status: 409)
                             let name = body["name"].asString().getValue().trimAscii()
                             demand(!name.isEmpty() && name.size <= 512, "INVALID_INPUT", "请填写餐馆名称")
+                            var code = ""
+                            for (_ in 0..32) {
+                                let candidate = "R" + newId()[0..8]
+                                if (!db.restaurants.any({r => r.restaurantCode.toAsciiLower() == candidate.toAsciiLower()}) &&
+                                    !db.sessions.any({r => r.roomCode.toAsciiLower() == candidate.toAsciiLower()})) {
+                                    code = candidate
+                                    break
+                                }
+                            }
+                            demand(!code.isEmpty(), "CODE_EXHAUSTED", "暂时无法分配餐馆码，请重试", status: 503)
                             let r = Restaurant(id: newId(), ownerId: actor.merchantId.getOrThrow(),
-                                restaurantCode: newId()[0..8], name: name,
+                                restaurantCode: code, name: name,
                                 description: body["description"].asString().getValue())
                             db.restaurants = db.restaurants.concat([r])
                             db.menuVersions = db.menuVersions.concat([MenuVersion(restaurantId: r.id, menuVersion: 1)])

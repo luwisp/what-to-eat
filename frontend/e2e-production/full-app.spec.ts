@@ -20,7 +20,9 @@ test("real accounts, defaults, two members, v3 meals, manual edits and confirmat
   await expect(
     h.getByRole("button", { name: "保存为我的默认设置" }),
   ).toBeVisible();
-  await h.getByLabel("食量", { exact: true }).selectOption("large");
+  await h.getByLabel("食量", { exact: true }).focus();
+  await h.keyboard.press("End");
+  await h.keyboard.press("ArrowLeft");
   await h.getByRole("button", { name: "保存为我的默认设置" }).click();
   await expect(h.getByRole("status")).toContainText("已保存");
   await h.goto("/r/LAOXIANGJI");
@@ -29,28 +31,25 @@ test("real accounts, defaults, two members, v3 meals, manual edits and confirmat
   ).toBeVisible();
   await h.getByLabel("用餐人数").fill("2");
   await h.getByRole("button", { name: "创建聚餐局" }).click();
-  await expect(h.getByRole("heading", { name: /聚餐局/ })).toBeVisible();
+  await expect(h).toHaveURL(/\/s\/[A-Za-z0-9]+$/);
   const room = h.url();
-  await h.getByRole("link", { name: "我的要求", exact: true }).click();
-  await expect(h.getByLabel("食量", { exact: true })).toHaveValue("large");
+  await h.getByRole("link", { name: /^(填写|编辑)我的要求$/ }).click();
+  await expect(h.getByLabel("食量", { exact: true })).toHaveValue("2");
   await h.getByRole("button", { name: "提交本局要求" }).click();
   await g.goto(room);
-  await g.getByRole("link", { name: "我的要求", exact: true }).click();
+  await g.getByRole("link", { name: /^(填写|编辑)我的要求$/ }).click();
   await g.getByRole("button", { name: "提交本局要求" }).click();
-  await expect(
-    h.getByText("2 人已填写 / 声明 2 人", { exact: false }),
-  ).toBeVisible();
+  await expect(h.getByText("2 / 2 人已填写", { exact: false })).toBeVisible();
   await h.getByRole("button", { name: "看看怎么点", exact: true }).click();
-  await expect(
-    h.getByText("已满足当前估算用餐需求", { exact: false }),
-  ).toBeVisible();
+  await expect(h.getByText("饭菜已配齐", { exact: false })).toBeVisible();
+  await h.getByText("看看每个人怎么吃", { exact: true }).click();
   await expect(h.getByText("热菜 3 / 3 份", { exact: false })).toBeVisible();
   await expect(h.getByRole("button", { name: "确认这桌方案" })).toBeEnabled();
   await h.getByRole("button", { name: "修改这桌方案" }).click();
   await h.getByRole("button", { name: "移除 米饭", exact: true }).click();
   await h.getByRole("button", { name: "保存并重新校验" }).click();
   await expect(
-    h.getByText("当前方案仍有用餐缺口", { exact: false }),
+    h.getByText("还有需要补齐的地方", { exact: false }),
   ).toBeVisible();
   await expect(h.getByRole("button", { name: "确认这桌方案" })).toHaveCount(0);
   const menu = await (
@@ -101,6 +100,7 @@ test("real merchant menu writes, package references and live recommendation inva
   await expect(page.getByRole("status")).toContainText("已保存");
   const own = await (await page.request.get("/api/merchant/restaurant")).json();
   const code = own.restaurant.restaurantCode;
+  expect(code).toMatch(/^R[A-Za-z0-9]{8}$/);
   const rice = {
     name: "米饭",
     description: "一人份",
@@ -145,12 +145,10 @@ test("real merchant menu writes, package references and live recommendation inva
   await page.goto(`/r/${code}`);
   await page.getByLabel("用餐人数").fill("1");
   await page.getByRole("button", { name: "创建聚餐局" }).click();
-  await page.getByRole("link", { name: "我的要求", exact: true }).click();
+  await page.getByRole("link", { name: /^(填写|编辑)我的要求$/ }).click();
   await page.getByRole("button", { name: "提交本局要求" }).click();
   await page.getByRole("button", { name: "看看怎么点", exact: true }).click();
-  await expect(
-    page.getByText("已满足当前估算用餐需求", { exact: false }),
-  ).toBeVisible();
+  await expect(page.getByText("饭菜已配齐", { exact: false })).toBeVisible();
   expect(
     (
       await page.request.put(`/api/merchant/dishes/${chicken.id}`, {
@@ -164,7 +162,7 @@ test("real merchant menu writes, package references and live recommendation inva
     ).status(),
   ).toBe(204);
   await expect(
-    page.getByText("需求或菜单已变化", { exact: false }),
+    page.getByText("大家的要求或菜单变了", { exact: false }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "确认这桌方案" })).toHaveCount(
     0,
@@ -178,7 +176,7 @@ test("simple preferences keep menu wishes, allergies and implicit staple choice"
   await page.goto("/r/LAOXIANGJI");
   await page.getByLabel("用餐人数").fill("1");
   await page.getByRole("button", { name: "创建聚餐局" }).click();
-  await page.getByRole("link", { name: "我的要求", exact: true }).click();
+  await page.getByRole("link", { name: /^(填写|编辑)我的要求$/ }).click();
   await expect(page.getByLabel("本局昵称", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("本次主食")).toHaveCount(0);
   await page.getByRole("button", { name: "香菜", exact: true }).click();
@@ -250,11 +248,11 @@ test("simple preferences keep menu wishes, allergies and implicit staple choice"
   ).toBeTruthy();
   await submit.click();
   await page.getByRole("button", { name: "看看怎么点", exact: true }).click();
-  await expect(
-    page.getByText("已满足当前估算用餐需求", { exact: false }),
-  ).toBeVisible();
+  await expect(page.getByText("饭菜已配齐", { exact: false })).toBeVisible();
   const state = await (
-    await page.request.get("/api/sessions/" + page.url().split("/s/")[1])
+    await page.request.get(
+      "/api/sessions/" + page.url().split("/s/")[1].split("/")[0],
+    )
   ).json();
   expect(
     state.recommendation.draft.items.some(
@@ -275,7 +273,7 @@ test("account error recovery, relogin defaults and local return navigation", asy
   await page.getByLabel("账号", { exact: true }).fill(login);
   await page.getByLabel("密码", { exact: true }).fill("short");
   await page.getByRole("button", { name: "注册账号", exact: true }).click();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("密码太短");
   await page.getByLabel("密码", { exact: true }).fill("audit-password-123");
   await page.getByRole("button", { name: "注册账号", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
@@ -288,7 +286,9 @@ test("account error recovery, relogin defaults and local return navigation", asy
   await page.getByRole("button", { name: "登录", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(page.getByRole("status")).toHaveCount(0);
-  await page.getByLabel("食量", { exact: true }).selectOption("large");
+  await page.getByLabel("食量", { exact: true }).focus();
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowLeft");
   await page.getByRole("button", { name: "香菜", exact: true }).click();
   await page.getByRole("button", { name: "保存为我的默认设置" }).click();
   await expect(page.getByRole("status")).toContainText("已保存");
@@ -298,12 +298,132 @@ test("account error recovery, relogin defaults and local return navigation", asy
   ).toBeVisible();
   await page.getByLabel("密码", { exact: true }).fill("audit-password-123");
   await page.getByRole("button", { name: "登录", exact: true }).click();
-  await expect(page.getByLabel("食量", { exact: true })).toHaveValue("large");
+  await expect(page.getByLabel("食量", { exact: true })).toHaveValue("2");
   await expect(
     page.getByRole("button", { name: "香菜", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await page.reload();
-  await expect(page.getByLabel("食量", { exact: true })).toHaveValue("large");
+  await expect(page.getByLabel("食量", { exact: true })).toHaveValue("2");
   await page.getByRole("button", { name: "← 返回原页面" }).click();
   await expect(page).toHaveURL(/\/r\/LAOXIANGJI$/);
+});
+
+test("recover entry, invite clearly, edit from members and open visual results", async ({
+  page,
+  browser,
+}) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.goto("/r/DOESNOTEXIST");
+  await expect(
+    page.getByRole("heading", { name: "没有找到这家餐馆" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "重试", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("link", { name: "回首页重新输入" }).click();
+  await page.getByLabel("或输入餐馆码 / 聚餐码").fill("MISSING");
+  await page.getByRole("button", { name: "进入", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("没有找到");
+  await expect(page).toHaveURL(/\/$/);
+  await page.getByLabel("或输入餐馆码 / 聚餐码").fill("laoxiangji");
+  await page.getByRole("button", { name: "进入", exact: true }).click();
+  await page.getByLabel("用餐人数").fill("2");
+  await page.getByRole("button", { name: "创建聚餐局" }).click();
+  await expect(page).toHaveURL(/\/s\/J[A-Za-z0-9]{6}$/);
+  const roomCode = page.url().split("/s/")[1];
+  await expect(page.locator(".room-tabs")).toHaveCount(0);
+  await page.getByRole("button", { name: "邀请同行人", exact: true }).click();
+  const invite = page.getByRole("dialog", { name: "邀请同行人" });
+  await expect(invite).toBeVisible();
+  const qr = await invite.getByAltText("聚餐局邀请二维码").boundingBox();
+  expect(qr).toBeTruthy();
+  expect(Math.abs(qr!.x + qr!.width / 2 - 393 / 2)).toBeLessThan(3);
+  const input = await invite.getByLabel("邀请链接").boundingBox();
+  const copy = await invite
+    .getByRole("button", { name: "复制链接" })
+    .boundingBox();
+  expect(
+    Math.abs(input!.y + input!.height / 2 - copy!.y - copy!.height / 2),
+  ).toBeLessThan(3);
+  await page.screenshot({ path: "/tmp/huaiwei-invite-redesign.png" });
+  await page.keyboard.press("Escape");
+  await expect(invite).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "邀请同行人", exact: true }),
+  ).toBeFocused();
+  await page.getByRole("link", { name: "填写我的要求" }).click();
+  await expect(
+    page.getByRole("button", { name: "整理文字里的要求" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("slider", { name: "食量", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("slider", { name: "接受辣度" }).focus();
+  await page.keyboard.press("End");
+  await page.getByRole("button", { name: "＋ 其他", exact: true }).click();
+  await page.getByLabel("其他不吃的食物").fill("香椿");
+  await page.getByLabel("其他不吃的食物").press("Enter");
+  await expect(
+    page.getByRole("button", { name: "香椿", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("其他不吃的食物")).toHaveCount(0);
+  await page.getByLabel("还有想说的？").fill("今天想清淡一点");
+  await page.screenshot({
+    path: "/tmp/huaiwei-preferences-redesign.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "提交本局要求" }).click();
+  await page.getByRole("button", { name: "＋ 帮同行人填写" }).click();
+  const companion = page.getByRole("dialog", { name: "帮同行人填写" });
+  await companion.getByLabel("称呼").fill("同行人 A");
+  await companion.getByRole("button", { name: "保存同行人要求" }).click();
+  await expect(companion).not.toBeVisible();
+  await expect(page.locator(".dining-members li")).toHaveCount(2);
+  await page.screenshot({
+    path: "/tmp/huaiwei-room-redesign.png",
+    fullPage: true,
+  });
+  // Delay the completed snapshot to exercise a real loading state under network latency.
+  await page.routeWebSocket("**/ws", (ws) => {
+    const server = ws.connectToServer();
+    server.onMessage((message) => {
+      const m = JSON.parse(String(message));
+      if (m.type === "room_state" && m.payload.recommendation && !m.payload.job)
+        setTimeout(() => ws.send(message), 700);
+      else ws.send(message);
+    });
+    ws.onMessage((message) => server.send(message));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "看看怎么点", exact: true }).click();
+  await expect(page.locator(".working-panel")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp("/s/" + roomCode + "/result$"));
+  await expect(page.locator(".result-dish")).not.toHaveCount(0);
+  await expect
+    .poll(() =>
+      page
+        .locator(".result-dish img")
+        .first()
+        .evaluate((img: HTMLImageElement) => img.naturalWidth),
+    )
+    .toBeGreaterThan(0);
+  await page.screenshot({
+    path: "/tmp/huaiwei-result-redesign.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 320, height: 720 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.getByRole("link", { name: "← 返回这一桌" }).click();
+  const guest = await browser.newContext();
+  const g = await guest.newPage();
+  await g.goto("/");
+  await g.getByLabel("或输入餐馆码 / 聚餐码").fill(roomCode.toLowerCase());
+  await g.getByRole("button", { name: "进入", exact: true }).click();
+  await expect(g).toHaveURL(new RegExp("/s/" + roomCode + "$"));
+  await expect(g.locator(".dining-members li")).toHaveCount(3);
+  await guest.close();
 });
