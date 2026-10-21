@@ -24,6 +24,17 @@ fetch_archive https://api.github.com/repos/openharmony/third_party_zlib/tarball/
 fetch_archive https://api.github.com/repos/openharmony/third_party_bounds_checking_function/tarball/OpenHarmony-v6.0-Release \
   .deps/boundscheck-source.tar.gz 0d26f38eeae9cfcda43691e72b5801048527b07c82185c0a03b1c217a007cb60 .deps/stdx/third_party/boundscheck-v1.1.16
 
+# stdx folds the zlib static archive into a shared library. Its static objects
+# must be PIC too; otherwise a fresh Linux build can fail with R_X86_64_PC32.
+python3 - <<'PYCODE'
+from pathlib import Path
+path = Path('.deps/stdx/third_party/zlib/CMakeLists.txt')
+text = path.read_text()
+line = 'set(CMAKE_POSITION_INDEPENDENT_CODE ON)'
+if line not in text:
+    path.write_text(line + '\n' + text)
+PYCODE
+
 if [ ! -d .deps/sqlite4cj ]; then
   git clone https://gitcode.com/skay_caomao/sqlite4cj.git .deps/sqlite4cj
   git -C .deps/sqlite4cj checkout --detach 70971c0b639ea55dcd8cfc2fc0ee03a017c38845

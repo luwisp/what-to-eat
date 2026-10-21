@@ -1,26 +1,178 @@
-# Huaiwei
+# Huaiwei · 一起吃
 
-仓颉1.2.0的多人聚餐点菜项目。已接通 SQLite、账号、商家菜单、多人聚餐和 v3 推荐
+仓颉 1.2.0 + Vue 3 的多人聚餐点菜应用。业务服务使用 SQLite 保存账号、餐馆菜单、聚餐局和推荐结果；不配置模型也可以运行规则推荐。
+
+## 快速启动
+
+在项目根目录执行。当前验证环境为 Linux x86_64、仓颉 1.2.0、Node.js 22、Python 3。源码构建还需要 CMake、Ninja、Clang 15 和完整的 OpenSSL 开发头文件。
 
 ```sh
-export HUAIWEI_CANGJIE_SDK=/path/to/cangjie
-bash scripts/bootstrap-deps.sh --local-tools  # 可选conda内Clang15/OpenSSL3.5
+export HUAIWEI_CANGJIE_SDK=/你的SDK目录/cangjie
+
+# 下载锁定版本的 stdx、sqlite4cj 及原生依赖源码。
+bash scripts/bootstrap-deps.sh
+# 如果缺少兼容的 Clang/OpenSSL，且已安装 conda，可改用：
+# bash scripts/bootstrap-deps.sh --local-tools
+
 npm ci
 npm --prefix frontend ci
-bash scripts/cj.sh build -j 4
-bash scripts/cj.sh exec target/release/bin/huaiwei
-bash scripts/check-platform.sh
+cp .env.example .env
+bash scripts/dev.sh
 ```
 
-已有适配的Clang15/完整OpenSSL开发头文件时，bootstrap可省略`--local-tools`。首次stdx源码编译需等待；默认服务`127.0.0.1:8080`，环境变量`HUAIWEI_HOST/HUAIWEI_PORT`可覆盖。业务服务通过 `bash scripts/dev.sh` 初始化并启动；首次会导入老乡鸡菜单，餐馆码 `LAOXIANGJI`。后续启动保留商家修改，仅恢复构建清理的图片。
+默认打开 [首页](http://127.0.0.1:8080/)。`scripts/dev.sh` 会依次构建前端和后端、首次导入老乡鸡菜单、补齐旧库菜单角色资料、恢复菜品图片，然后启动业务服务。首次编译 stdx 会比较慢。停止服务按 `Ctrl+C`，再次启动仍保留原数据库内容，不会重新导入覆盖商家改动。
 
-共享模型源在`scripts/generate-models.py`，生成`src/model/entities.cj`。模型字段改变后运行`python3 scripts/generate-models.py`。`src/model/contracts.cj`为目录/身份端口，`src/store/repository.cj`定义隔离快照与原子事务。`src/platform/http.cj`的`HttpRouter.on(method,path,handler)`支持`:id`路径参数和方法分发，`jsonResponse/jsonError`统一JSON。服务装配在`src/app/server.cj`。
+`.env` 由启动脚本读取，端口和地址在其中修改。`HUAIWEI_PUBLIC_BASE_URL` 必须与浏览器实际访问地址一致，包括协议、主机名和端口；`localhost` 与 `127.0.0.1` 不能混用，否则账号或菜单写入、WebSocket 连接可能被来源校验拒绝。例如使用当前开发地址时：
 
+```dotenv
+HUAIWEI_HOST=127.0.0.1
+HUAIWEI_PORT=8092
+HUAIWEI_PUBLIC_BASE_URL=http://localhost:8092
+HUAIWEI_DB_PATH=data/runtime/huaiwei.sqlite
+```
 
-## 老乡鸡菜单导入
+不读取项目 `.env`、单独指定配置时：
 
-运行 `python3 scripts/import-menu.py`，即可从 Excel 提取菜品和内嵌图片，写入 `data/runtime/huaiwei.sqlite`。支持重复导入和事务回滚，无需额外 Python 依赖。操作与现有 Repository 的衔接见 [导入说明](docs/dev/menu-import.md)。
+```sh
+HUAIWEI_ENV_FILE=/dev/null HUAIWEI_PORT=8081 \
+  HUAIWEI_PUBLIC_BASE_URL=http://127.0.0.1:8081 bash scripts/dev.sh
+```
 
-## 算法交互调试
+### 页面入口
 
-配置仓颉 SDK 后运行 `bash scripts/algorithm-dev.sh`，打开本机 `http://127.0.0.1:8091`。使用老乡鸡真实 SQLite 菜单运行 B2 v3 选择器，支持饭量、独立主食、动态愿望、预算档位和个人适配；保留原算法对照及 unknown/下架模拟。见 [算法实验室说明](dev/algorithm/README.md)。
+以下路径均相对于同一个业务服务地址。消费者端、商家端和 API 不需要分别启动。
+
+| 路径 | 用途 |
+| --- | --- |
+| `/` | 首页：扫码、输入餐馆码或同站邀请链接；右上角进入账号页 |
+| `/r/LAOXIANGJI` | 内置老乡鸡示例餐馆：先看菜单或直接建局 |
+| `/r/:code/menu` | 菜单、图片、单点和套餐，标记想吃 |
+| `/s/:code` | 聚餐概览、邀请、成员状态、预算、推荐及调整 |
+| `/s/:code/preferences` | 本人的食量、口味、想吃、不吃、过敏和文字补充 |
+| `/account` | 消费者注册、登录、退出和默认设置 |
+| `/admin/` | 商家注册、登录、餐馆资料、菜单、套餐和餐馆二维码 |
+| `/health` | 服务健康检查，正常返回 `{"status":"ok","sdk":"1.2.0"}` |
+| `/api/capabilities` | 查看本次服务是否启用了 AI |
+
+首页短码输入对应餐馆码，例如 `LAOXIANGJI`；加入聚餐请使用完整邀请链接或二维码。摄像头扫码需要浏览器授权及安全上下文（HTTPS 或浏览器认可的本机地址）；无法扫码时可手工输入。手机访问需要服务绑定可达地址，并将公开地址配置为手机实际访问的地址，使用 HTTPS 才能可靠启用摄像头。
+
+## 账号与默认设置
+
+### 消费者
+
+1. 从首页右上角“我的”进入 `/account`，选择注册，成功后再登录。
+2. 账号不能为空且不能含空白或控制字符；密码至少 8 字节。建议联调使用不少于 8 位的英文数字密码。
+3. 登录后可保存食量、过敏、不吃、饮食方式、接受辣度及口味喜好。
+4. 新建或首次填写时带入默认设置；已有本局草稿和已提交要求优先，不会因修改账号默认设置而自动覆盖。
+5. 本次想吃的具体菜、套餐、食材和文字补充不保存为账号默认值。
+
+未登录也能看菜单、建局、加入、填写和点菜。账号会话与本机访客身份分开保存：退出账号不会移除已加入的聚餐身份。刷新或服务正常重启后，未过期的登录会话、账号默认设置及聚餐局可以恢复。账号登录会话有效期为 7 天，访客会话 30 天，聚餐局 24 小时；清除浏览器 Cookie 后不会自动找回原访客身份。
+
+### 商家
+
+打开 `/admin/`，注册商家账号，登录后创建自己的餐馆。可编辑名称和简介，管理菜品价格、图片地址、配方、辣度、上下架、分类、招牌及推荐角色资料，并维护套餐组分和价格。餐馆入口链接及二维码在后台生成。
+
+消费者与商家是独立账号域：可使用相同账号名分别注册，登录一种身份不会自动获得另一种身份的权限。每个商家只能写入自己所属餐馆；没有内置管理员账号或默认密码。首次导入的 `LAOXIANGJI` 默认未分配商家，不会因注册新商家自动取得其管理权限。
+
+当前不提供找回密码、修改密码或账号删除页面。
+
+## 一桌用餐的流程
+
+1. 从首页进入餐馆，可先标记想吃的菜和套餐，也可直接填写人数、可选人均预算后建局。
+2. 建局后立即邀请同行人，不需要先填完自己的要求。同一浏览器共享访客身份；模拟不同人请用不同浏览器配置或无痕会话。
+3. 各自填写并提交本局要求。只存草稿不会计为已填写；发起人也可补充不方便自行填写的同行人。
+4. 发起人点击“看看怎么点”。规则系统结合各人限制、食量、主食、愿望和全桌预算生成方案；每个人有适配菜即可，不要求每道菜适合所有人。
+5. 默认每人一份米饭。选面条、馄饨或菜单中的对应单人主食会替代自动米饭；明确又选米饭时保留米饭。食量小／正常／大／特别大对应估算 0.5／1／1.5／2 份热菜需求，主食、汤、小吃、饮品单独计算。
+6. 结果可手动添加、移除、调整份数，保存后重新校验；也可使用快捷调整，启用 AI 时可文字调整。缺口或冲突会展示，不会通过放宽限制强行完成。
+7. 确认方案后需要重开才能再改。需求、人数、预算或菜单发生变化会使原推荐失效，需重新推荐。
+
+“想吃”中的固定喜好直接选择；“按食材选”可以展开搜索本店食材；具体菜、小吃、饮品和套餐统一从菜单标记。高级主食与辣度愿望字段保留给推荐端和 AI 建议，不逐项铺在表单中。
+
+配方末尾的 `unknown` 表示剩余食材未知。无食材限制者仍可推荐；有不吃或素食限制时不计为确定适配；整桌有人过敏时会排除此类菜。食材关联匹配仍有覆盖范围限制，复杂过敏场景和全面的品牌饮料配方识别尚未完成。
+
+## AI 配置与边界
+
+在 `.env` 中填写后重启业务服务：
+
+```dotenv
+DEEPSEEK_API_KEY=你的密钥
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=你的可用模型名称
+```
+
+密钥或模型名称为空时使用规则推荐，文字整理和 AI 聊天不可用。基础地址须为 HTTPS，模型需要支持当前的聊天及工具调用接口。模型超时、输出无效或校验失败时回退到规则推荐。
+
+AI 可以整理文字为待确认标签、提议隐藏的主食与辣度愿望、查询当前菜单及调整推荐。建议需应用并提交，模型推荐仍经过服务端的菜单、价格、配方、适配与预算校验，不能自行删除过敏和不吃限制。
+
+本地回归覆盖模型替身、输出校验和降级路径。本次还在临时数据库中真实调用配置的 `deepseek-flash`，验证了文字整理及一次单人推荐，返回 `mode=ai` 且通过服务端校验。真实多人 AI 推荐和连续 AI 调整尚未实测；扫码自动化覆盖摄像头失败后的手工入口，未以真实手机摄像头验证成功扫码。
+
+## 数据与菜单导入
+
+默认数据库为 `data/runtime/huaiwei.sqlite`，图片构建产物为 `web/menu-images/`。运行数据和 `.env` 不提交到 Git。备份或迁移数据时先停止应用，再保存完整 SQLite 数据库文件。
+
+```sh
+# 首次导入或有意更新示例菜单。会重新应用 Excel 配方，已有商家编辑时慎用。
+python3 scripts/import-menu.py --db data/runtime/huaiwei.sqlite
+
+# 仅恢复构建清理的图片，不改菜单或商家编辑。
+python3 scripts/restore-menu-assets.py --db data/runtime/huaiwei.sqlite
+```
+
+导入从 `data/fixtures/老乡鸡菜谱.xlsx` 提取菜品和内嵌图片，角色及份量补充事实来自 `data/fixtures/meal-annotations.json`，无需额外 Python 包。`--owner-id` 只能指定数据库中已存在的商家，并且不能借重复导入转移既有餐馆归属。导入支持重复执行和事务回滚；现有数据库启动时不自动重导菜单。
+
+## 开发、检查与其他运行方式
+
+安装浏览器测试运行时：
+
+```sh
+npm --prefix frontend exec -- playwright install chromium
+```
+
+完整检查：
+
+```sh
+bash scripts/check.sh
+```
+
+包括模型生成、前后端构建、仓颉单元测试、HTTP/WebSocket、真实入口及账号重启持久化、前端单元测试、浏览器业务流程、菜单导入和角色资料测试。测试需要本地端口权限；真实业务写入使用临时数据库。浏览器回归使用 8089、8095、4173、4175，请保持这些端口空闲。检查会重建 `web/`，并恢复本地数据库中的菜单图片。
+
+| 命令 | 用途 |
+| --- | --- |
+| `npm --prefix frontend run test -- --run` | 前端单元测试 |
+| `bash scripts/build-integration-server.sh` 后运行 `npm --prefix frontend run test:e2e` | 组件级浏览器回归，使用测试适配器 |
+| `npm --prefix frontend run test:e2e:full` | 真实 SQLite、账号、商家、聚餐和推荐浏览器联调，需先构建后端 |
+| `node --test tests/auth-integration.mjs` | 从空数据库验证正式启动脚本、账号隔离、退出及服务重启持久化 |
+| `bash scripts/check-platform.sh` | 额外平台、加密、SQLite 和服务探针检查 |
+| `bash scripts/algorithm-dev.sh` | 独立算法工作台，默认 `http://127.0.0.1:8091` |
+| `bash scripts/test-algorithm-dev.sh` | 工作台选择器与真实菜单 HTTP 回归 |
+
+需要前端热更新时，先运行正式业务服务，再在另一个终端执行（后端端口按实际配置调整）：
+
+```sh
+HUAIWEI_API_ORIGIN=http://127.0.0.1:8080 npm --prefix frontend run dev -- --port 5173
+```
+
+此时后端 `HUAIWEI_PUBLIC_BASE_URL` 要设为浏览器实际使用的 `http://127.0.0.1:5173`，以匹配写入和 WebSocket 来源。
+
+`bash scripts/dev.sh --component-demo` 是独立的 `TEST` 组件演示，使用内存菜单和测试身份，重启会清空房间，不能用于验证真实账号和商家菜单写入。独立算法工作台是调试入口，也不是消费者正式应用；其说明见 [工作台 README](dev/algorithm/README.md)。
+
+直接运行 `bash scripts/cj.sh exec target/release/bin/huaiwei` 只启动已编译服务，不会读取 `.env`、构建前端、导入新库或恢复图片；需事先完成这些步骤并导出所需环境变量。一般联调使用 `scripts/dev.sh`。
+
+### 代码入口
+
+- `src/main.cj` → `src/app/server.cj`：服务配置与业务装配。
+- `src/auth/`：消费者／商家认证、Cookie 会话和用户默认设置。
+- `src/catalog/`：餐馆、菜单和套餐写入及归属校验。
+- `src/room/`：多人房间、WebSocket、推荐作业和状态变更。
+- `src/agent/`：规则、v3 份量选择器、AI 工具与校验。
+- `src/store/`：Repository 与 SQLite 快照事务。
+- `frontend/src/`：消费者和商家 Vue 页面。
+- `scripts/generate-models.py`：共享模型源；修改字段后生成 `src/model/entities.cj` 和前端契约。
+
+### 常见问题
+
+- **403／INVALID_ORIGIN 或 WebSocket 无法连接**：核对浏览器地址与 `HUAIWEI_PUBLIC_BASE_URL`，端口改变后同步修改。前端开发代理场景填前端地址。
+- **页面 404、图片丢失**：从仓库根目录运行启动脚本；前端单独构建后运行图片恢复命令。
+- **端口占用**：调整 `.env` 中端口和公开地址；测试端口有固定用途。
+- **SDK 未找到**：设置 `HUAIWEI_CANGJIE_SDK` 或 `CANGJIE_HOME`，SDK 根目录应包含 `envsetup.sh`。
+- **stdx 编译或 OpenSSL 头文件错误**：使用兼容的 Clang 15 和完整开发头文件，或执行带 `--local-tools` 的依赖准备。脚本同时修复 zlib 静态库 PIC 设置，避免首次 Linux 链接报 `R_X86_64_PC32`。

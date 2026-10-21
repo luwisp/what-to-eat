@@ -22,7 +22,7 @@ public func serverConfigFromEnvironment(): ServerConfig {
 public func startServer(config: ServerConfig): Unit {
     let database = getVariable("HUAIWEI_DB_PATH") ?? "data/runtime/huaiwei.sqlite"
     let repository = SqliteRepository(database)
-    let origin = getVariable("HUAIWEI_PUBLIC_BASE_URL") ?? "http://localhost:${config.port}"
+    let origin = getVariable("HUAIWEI_PUBLIC_BASE_URL") ?? "http://127.0.0.1:${config.port}"
     let auth = AuthService(repository, publicOrigin: origin)
     auth.pruneExpired().unwrap()
     let defaults = DefaultSettingsService(repository)

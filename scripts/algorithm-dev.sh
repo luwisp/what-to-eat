@@ -3,7 +3,7 @@ set -euo pipefail
 project_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$project_dir"
 if [ ! -f "${HUAIWEI_DEV_DB:-data/runtime/huaiwei.sqlite}" ]; then
-  python3 scripts/import-menu.py
+  python3 scripts/import-menu.py --db "${HUAIWEI_DEV_DB:-data/runtime/huaiwei.sqlite}"
 fi
 export cjHeapSize=${cjHeapSize:-64MB}
 if [ "${HUAIWEI_DEV_SKIP_BUILD:-false}" != true ]; then bash scripts/cj.sh build -j 1; fi

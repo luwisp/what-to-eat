@@ -39,7 +39,11 @@ test("browse first, preserve wishes and text, invite before filling, independent
   await h.getByRole("button", { name: "提交本局要求" }).click();
   await h.getByRole("button", { name: "看看怎么点", exact: true }).click();
   await expect(h.getByRole("heading", { name: "这一桌的推荐" })).toBeVisible();
-  await expect(h.getByText("青椒清香，土豆爽脆。", { exact: true })).toBeVisible();
+  await expect(
+    h
+      .locator("li .dish-description")
+      .filter({ hasText: /^青椒清香，土豆爽脆。$/ }),
+  ).toBeVisible();
   await expect(h.getByText("已切换规则推荐", { exact: true })).toBeVisible();
   await expect(h.getByRole("button", { name: "确认这桌方案" })).toBeEnabled();
   await h.getByRole("button", { name: "确认这桌方案" }).click();

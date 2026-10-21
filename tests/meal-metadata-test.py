@@ -6,6 +6,8 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import sqlite3
 import tempfile
 import unittest
@@ -22,7 +24,11 @@ class MetadataTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.directory = Path(self.temp.name)
         self.db = self.directory / 'menu.sqlite'
-        shutil.copyfile(Path(os.environ.get('HUAIWEI_DEV_DB', ROOT / 'data/runtime/huaiwei.sqlite')), self.db)
+        if os.environ.get('HUAIWEI_DEV_DB'):
+            shutil.copyfile(Path(os.environ['HUAIWEI_DEV_DB']), self.db)
+        else:
+            subprocess.run([sys.executable, str(ROOT / 'scripts/import-menu.py'), '--db', str(self.db),
+                            '--assets-dir', str(self.directory / 'images')], check=True, stdout=subprocess.DEVNULL)
         with sqlite3.connect(self.db) as db:
             self.snapshot = json.loads(db.execute('SELECT payload_json FROM app_snapshot WHERE id=1').fetchone()[0])
 

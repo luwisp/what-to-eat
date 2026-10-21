@@ -265,3 +265,45 @@ test("simple preferences keep menu wishes, allergies and implicit staple choice"
     state.recommendation.draft.items.some((i: any) => i.name === "米饭"),
   ).toBeFalsy();
 });
+
+test("account error recovery, relogin defaults and local return navigation", async ({
+  page,
+}) => {
+  const login = "account-audit-" + Date.now();
+  await page.goto("/account?returnTo=/r/LAOXIANGJI");
+  await page.getByRole("button", { name: "还没有账号，去注册" }).click();
+  await page.getByLabel("账号", { exact: true }).fill(login);
+  await page.getByLabel("密码", { exact: true }).fill("short");
+  await page.getByRole("button", { name: "注册账号", exact: true }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await page.getByLabel("密码", { exact: true }).fill("audit-password-123");
+  await page.getByRole("button", { name: "注册账号", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText("注册成功");
+  await page.getByLabel("密码", { exact: true }).fill("wrong-password");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("账号或密码错误");
+  await expect(page.getByRole("status")).toHaveCount(0);
+  await page.getByLabel("密码", { exact: true }).fill("audit-password-123");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("status")).toHaveCount(0);
+  await page.getByLabel("食量", { exact: true }).selectOption("large");
+  await page.getByRole("button", { name: "香菜", exact: true }).click();
+  await page.getByRole("button", { name: "保存为我的默认设置" }).click();
+  await expect(page.getByRole("status")).toContainText("已保存");
+  await page.getByRole("button", { name: "退出账号" }).click();
+  await expect(
+    page.getByRole("button", { name: "登录", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("密码", { exact: true }).fill("audit-password-123");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(page.getByLabel("食量", { exact: true })).toHaveValue("large");
+  await expect(
+    page.getByRole("button", { name: "香菜", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.reload();
+  await expect(page.getByLabel("食量", { exact: true })).toHaveValue("large");
+  await page.getByRole("button", { name: "← 返回原页面" }).click();
+  await expect(page).toHaveURL(/\/r\/LAOXIANGJI$/);
+});

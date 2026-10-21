@@ -35,6 +35,7 @@ onMounted(() =>
 );
 async function submit() {
   error.value = "";
+  notice.value = "";
   try {
     if (registering.value) {
       await api("/api/user/register", "POST", {
@@ -57,6 +58,8 @@ async function submit() {
   }
 }
 async function save() {
+  error.value = "";
+  notice.value = "";
   try {
     await saveDefaults({
       ...prefs.value,
@@ -69,6 +72,8 @@ async function save() {
   }
 }
 async function logout() {
+  error.value = "";
+  notice.value = "";
   try {
     await api("/api/user/logout", "POST");
     account.value = null;
