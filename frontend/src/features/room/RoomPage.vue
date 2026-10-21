@@ -83,6 +83,10 @@ function appendItem() {
     });
   addItem.value = "";
 }
+function itemDescription(item: RecommendationItem): string {
+  if (item.itemType !== "dish") return "";
+  return menu.value?.dishes.find((d) => d.id === item.itemId)?.description.trim() ?? "";
+}
 async function saveResultEdit() {
   await send("edit_recommendation", {
     expectedVersion: editingVersion.value,
@@ -496,6 +500,9 @@ const mine = computed(
               >{{ item.itemType === "setMeal" ? "套餐售价" : "单点" }}
               {{ money(item.unitPriceFen) }}</small
             >
+            <span v-if="itemDescription(item)" class="dish-description">
+              {{ itemDescription(item) }}
+            </span>
           </li>
         </ul>
         <details>
@@ -505,6 +512,9 @@ const mine = computed(
             }}<span v-if="d.dish.ingredients.some((i) => i === 'unknown')">
               · 其余食材不详</span
             >
+            <span v-if="d.dish.description" class="dish-description">
+              {{ d.dish.description }}
+            </span>
           </p>
         </details>
         <h3>适合自己的菜</h3>

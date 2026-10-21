@@ -169,6 +169,7 @@ class AlgorithmDevHTTPTests(unittest.TestCase):
             self.assertIn('wantedSpiceLevel', script)
             self.assertIn('syncMembersToPeople', script)
             self.assertIn('同行人 ${String.fromCharCode(64+index)}', script)
+            self.assertIn('dish-description', script)
             self.assertNotIn('data-field="dietMode"', script)
 
     def test_user_export_noodle_replacement_has_personal_staple(self):

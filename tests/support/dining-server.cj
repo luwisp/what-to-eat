@@ -13,8 +13,9 @@ class FixtureRepository <: Repository {
     let lock = Mutex()
     var data = DatabaseSnapshot(restaurants: [Restaurant(id: "r", restaurantCode: "TEST", name: "测试餐馆")],
         menuVersions: [MenuVersion(restaurantId: "r", menuVersion: 1)],
-        dishes: [Dish(id: "a", restaurantId: "r", name: "青椒土豆", ingredients: ["青椒", "土豆"], priceFen: 1200),
-            Dish(id: "b", restaurantId: "r", name: "清炒白菜", ingredients: ["白菜"], priceFen: 1000),
+        dishes: [Dish(id: "a", restaurantId: "r", name: "青椒土豆", description: "青椒清香，土豆爽脆。",
+            ingredients: ["青椒", "土豆"], priceFen: 1200),
+            Dish(id: "b", restaurantId: "r", name: "清炒白菜", description: "清爽家常小炒。", ingredients: ["白菜"], priceFen: 1000),
             Dish(id: "u", restaurantId: "r", name: "今日小炒", ingredients: ["unknown"], priceFen: 1800)])
     public func read(): DatabaseSnapshot {
         synchronized(lock) {
