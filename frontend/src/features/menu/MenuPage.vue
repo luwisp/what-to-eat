@@ -3,7 +3,18 @@ import AppIcon from "../../shared/AppIcon.vue";
 import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getMenu, getRoom, money } from "../../shared/api";
-import type { MenuSnapshot, Preferences } from "../../shared/contracts";
+import type {
+  MenuSnapshot,
+  Preferences,
+  RecommendationItem,
+} from "../../shared/contracts";
+import QuantityControl from "../../shared/QuantityControl.vue";
+import {
+  readPlan,
+  writePlan,
+  changePlanItem,
+  type PlanDraft,
+} from "./planDraft";
 import { loadDraft, saveDraft, type DraftKey } from "./drafts";
 const route = useRoute(),
   router = useRouter(),
@@ -13,6 +24,40 @@ const route = useRoute(),
   prefs = ref<Preferences>(
     loadDraft(`restaurant:${String(route.params.code)}`),
   );
+const editPlan = computed(() => route.query.edit === "1" && !!route.query.room);
+const plan = ref<PlanDraft>({ version: 0, items: [] });
+const planMember = ref("");
+function planQuantity(id: string, meal = false) {
+  return (
+    plan.value.items.find(
+      (i) => i.itemId === id && i.itemType === (meal ? "setMeal" : "dish"),
+    )?.quantity ?? 0
+  );
+}
+function changeQuantity(id: string, quantity: number, meal = false) {
+  const item = meal
+    ? menu.value?.setMeals.find((d) => d.id === id)
+    : menu.value?.dishes.find((d) => d.id === id);
+  if (!item || error.value || !planMember.value) return;
+  plan.value = {
+    ...plan.value,
+    items: changePlanItem(
+      plan.value.items,
+      {
+        itemType: meal ? "setMeal" : "dish",
+        itemId: id,
+        name: item.name,
+        unitPriceFen: item.priceFen,
+        quantity: 1,
+      },
+      quantity,
+    ),
+  };
+  writePlan(String(route.query.room), planMember.value, plan.value);
+}
+const planTotal = computed(() =>
+  plan.value.items.reduce((sum, i) => sum + i.quantity * i.unitPriceFen, 0),
+);
 let key: DraftKey = `restaurant:${String(route.params.code)}`;
 const labels: Record<string, string> = {
   all: "全部",
@@ -20,6 +65,7 @@ const labels: Record<string, string> = {
   hot: "热菜",
   soup: "汤",
   staple: "主食",
+  side: "小吃",
   drink: "饮品",
   setMeal: "套餐",
 };
@@ -31,7 +77,19 @@ async function load() {
       code = String(state.session.restaurantId);
       const restaurant = await getMenu(String(route.params.code));
       menu.value = restaurant;
-      key = `room:${String(route.query.room)}:${state.self!.id}`;
+      if (!state.self) throw new Error("请先回到聚餐局加入这桌");
+      key = `room:${String(route.query.room)}:${state.self.id}`;
+      if (editPlan.value) {
+        if (!state.self || !state.recommendation)
+          throw new Error("先回到聚餐局生成方案，再添加菜品");
+        planMember.value = state.self.id;
+        plan.value = readPlan(String(route.query.room), state.self.id) ?? {
+          version: state.stateVersion,
+          items: state.recommendation.draft.items,
+        };
+        if (plan.value.version !== state.stateVersion)
+          throw new Error("这桌方案已经更新，请返回后重新编辑");
+      }
       prefs.value = loadDraft(key);
     } else {
       menu.value = await getMenu(code);
@@ -43,7 +101,13 @@ async function load() {
   }
 }
 onMounted(load);
-watch(prefs, (value) => saveDraft(key, value), { deep: true });
+watch(
+  prefs,
+  (value) => {
+    if (!editPlan.value) saveDraft(key, value);
+  },
+  { deep: true },
+);
 function toggle(id: string, meal = false) {
   const prop = meal ? "wantedSetMealIds" : "wantedDishIds";
   prefs.value = {
@@ -62,13 +126,15 @@ const dishes = computed(
       (d) => category.value === "all" || d.category === category.value,
     ) ?? [],
 );
-const selectedCount = computed(
-  () => prefs.value.wantedDishIds.length + prefs.value.wantedSetMealIds.length,
+const selectedCount = computed(() =>
+  editPlan.value
+    ? plan.value.items.length
+    : prefs.value.wantedDishIds.length + prefs.value.wantedSetMealIds.length,
 );
 function done() {
   void router.push(
     route.query.room
-      ? `/s/${route.query.room}/preferences`
+      ? `/s/${route.query.room}/${editPlan.value ? "result?edit=1" : "preferences"}`
       : `/r/${route.params.code}`,
   );
 }
@@ -83,10 +149,11 @@ function done() {
       </div>
     </div>
     <p class="menu-tip">
-      <AppIcon
-        name="check"
-        :size="16"
-      />先标记想吃的菜，再结合每个人的要求一起推荐
+      <AppIcon name="check" :size="16" />{{
+        editPlan
+          ? "选择要加入这桌的菜，返回后一起保存"
+          : "先标记想吃的菜，再结合每个人的要求一起推荐"
+      }}
     </p>
     <div class="menu-layout">
       <nav class="category-rail" aria-label="菜品分类">
@@ -148,7 +215,15 @@ function done() {
               </p>
               <div class="dish-bottom">
                 <strong class="price">{{ money(dish.priceFen) }}</strong>
+                <QuantityControl
+                  v-if="editPlan"
+                  :name="dish.name"
+                  :quantity="planQuantity(dish.id)"
+                  :increase-disabled="!dish.available || !!error"
+                  @change="(n) => changeQuantity(dish.id, n)"
+                />
                 <button
+                  v-else
                   class="wish-button"
                   :disabled="!dish.available"
                   :aria-pressed="prefs.wantedDishIds.includes(dish.id)"
@@ -214,7 +289,14 @@ function done() {
                 <strong class="price"
                   >{{ money(meal.priceFen) }}<small> / 套</small></strong
                 >
+                <QuantityControl
+                  v-if="editPlan"
+                  :name="meal.name"
+                  :quantity="planQuantity(meal.id, true)"
+                  @change="(n) => changeQuantity(meal.id, n, true)"
+                />
                 <button
+                  v-else
                   class="wish-button"
                   :aria-pressed="prefs.wantedSetMealIds.includes(meal.id)"
                   @click="toggle(meal.id, true)"
@@ -249,7 +331,10 @@ function done() {
           这家餐馆暂时没有套餐
         </p>
         <p v-if="error" class="error" role="alert">
-          {{ error }} <button @click="load">重试</button>
+          {{ error }} <button @click="load">重试</button
+          ><RouterLink v-if="editPlan" :to="`/s/${route.query.room}/result`"
+            >返回方案</RouterLink
+          >
         </p>
       </div>
     </div>
@@ -261,13 +346,19 @@ function done() {
       >
       <div>
         <strong>{{
-          selectedCount
-            ? `已标记 ${selectedCount} 项想吃`
-            : "看到喜欢的，就标记吧"
+          editPlan
+            ? `${selectedCount} 项 · ${money(planTotal)}`
+            : selectedCount
+              ? `已标记 ${selectedCount} 项想吃`
+              : "看到喜欢的，就标记吧"
         }}</strong
-        ><small>只记录愿望，稍后一起决定</small>
+        ><small>{{
+          editPlan ? "返回方案后保存并校验" : "只记录愿望，稍后一起决定"
+        }}</small>
       </div>
-      <button class="primary" @click="done">完成选择</button>
+      <button class="primary" @click="done">
+        {{ editPlan ? "返回方案" : "完成选择" }}
+      </button>
     </div>
   </section>
 </template>

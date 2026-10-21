@@ -1,4 +1,4 @@
-package huaiwei.model
+package juxiaobao.model
 
 public class DomainError {
     public let code: String

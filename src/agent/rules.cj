@@ -1,6 +1,6 @@
-package huaiwei.agent
+package juxiaobao.agent
 
-import huaiwei.model.*
+import juxiaobao.model.*
 import std.collection.*
 
 func invalid(message: String): DomainError {

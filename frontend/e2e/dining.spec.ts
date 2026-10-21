@@ -43,9 +43,11 @@ test("browse first, preserve wishes and text, invite before filling, independent
       .locator("li .dish-description")
       .filter({ hasText: /^青椒清香，土豆爽脆。$/ }),
   ).toBeVisible();
+  await h.getByRole("button", { name: "找点菜员聊聊" }).click();
   await expect(
     h.getByText("基础搭配 · 可手动调整", { exact: true }),
   ).toBeVisible();
+  await h.getByRole("button", { name: "收起点菜员" }).click();
   await expect(h.getByRole("button", { name: "确认这桌方案" })).toBeEnabled();
   await h.getByRole("button", { name: "确认这桌方案" }).click();
   await expect(h.getByText("本桌已确认", { exact: false })).toBeVisible();

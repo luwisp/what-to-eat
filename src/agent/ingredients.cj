@@ -1,6 +1,6 @@
-package huaiwei.agent
+package juxiaobao.agent
 
-import huaiwei.model.*
+import juxiaobao.model.*
 
 // Conservative local associations. Groups deliberately keep fish, crustaceans
 // and molluscs distinct. The model can add associations, never remove these.

@@ -1,7 +1,7 @@
-package huaiwei.agent
+package juxiaobao.agent
 
-import huaiwei.model.*
-import huaiwei.platform.*
+import juxiaobao.model.*
+import juxiaobao.platform.*
 import std.unittest.*
 import std.unittest.testmacro.*
 

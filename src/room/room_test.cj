@@ -1,8 +1,8 @@
-package huaiwei.room
+package juxiaobao.room
 
-import huaiwei.model.*
-import huaiwei.store.*
-import huaiwei.platform.*
+import juxiaobao.model.*
+import juxiaobao.store.*
+import juxiaobao.platform.*
 import std.sync.*
 import std.unittest.*
 import std.unittest.testmacro.*

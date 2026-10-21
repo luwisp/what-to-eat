@@ -1,8 +1,8 @@
 // Local-only, read-only algorithm workbench. Never mounted by production main.
-import huaiwei.model.*
-import huaiwei.platform.*
-import huaiwei.agent.*
-import huaiwei.room.*
+import juxiaobao.model.*
+import juxiaobao.platform.*
+import juxiaobao.agent.*
+import juxiaobao.room.*
 import std.collection.*
 import std.env.*
 import std.convert.*
@@ -90,7 +90,7 @@ func parseInput(body: JsonObject, menu: MenuSnapshot): RuleInput {
 }
 
 func loadMealFacts(menu: MenuSnapshot): JsonObject {
-    let path = getVariable("HUAIWEI_DEV_METADATA") ?? "data/runtime/meal-metadata.json"
+    let path = getVariable("JUXIAOBAO_DEV_METADATA") ?? "data/runtime/meal-metadata.json"
     try (file = File(path, Read)) {
         let obj = JsonValue.fromStr(String.fromUtf8(readToEnd(file))).asObject()
         if (obj["restaurantId"].asString().getValue() != menu.restaurant.id || obj["menuVersion"].asInt().getValue() != menu
@@ -185,12 +185,12 @@ func devMenuJson(menu: MenuSnapshot): JsonObject {
 }
 
 main(): Int64 {
-    let path = getVariable("HUAIWEI_DEV_DB") ?? "data/runtime/huaiwei.sqlite"
-    let code = getVariable("HUAIWEI_DEV_RESTAURANT") ?? "LAOXIANGJI"
-    let port = UInt16.parse(getVariable("HUAIWEI_DEV_PORT") ?? "8091")
-    let host = getVariable("HUAIWEI_DEV_HOST") ?? "127.0.0.1"
-    let publicOrigin = getVariable("HUAIWEI_DEV_ORIGIN") ?? "http://127.0.0.1:${port}"
-    let root = getVariable("HUAIWEI_DEV_ROOT") ?? "dev/algorithm"
+    let path = getVariable("JUXIAOBAO_DEV_DB") ?? "data/runtime/juxiaobao.sqlite"
+    let code = getVariable("JUXIAOBAO_DEV_RESTAURANT") ?? "LAOXIANGJI"
+    let port = UInt16.parse(getVariable("JUXIAOBAO_DEV_PORT") ?? "8091")
+    let host = getVariable("JUXIAOBAO_DEV_HOST") ?? "127.0.0.1"
+    let publicOrigin = getVariable("JUXIAOBAO_DEV_ORIGIN") ?? "http://127.0.0.1:${port}"
+    let root = getVariable("JUXIAOBAO_DEV_ROOT") ?? "dev/algorithm"
     // Fail visibly at startup if the real imported menu is unavailable.
     let initial = readMenu(path, code)
     let lock = Mutex()

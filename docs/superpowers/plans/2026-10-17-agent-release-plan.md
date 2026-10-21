@@ -60,7 +60,7 @@
 
 **Files:** Create `README.md`、`.env.example`、`scripts/dev.sh`、`scripts/check.sh`、`scripts/llm-smoke.mjs`、`docs/dev/acceptance.md`；Modify `frontend/playwright.config.ts`、`data/fixtures/restaurants.json`、`docs/dev/environment.md`。
 
-**Interfaces:** Consumes全部已实现能力；Produces `bash scripts/dev.sh`启动说明、`bash scripts/check.sh`统一非真实付费API检查、`node scripts/llm-smoke.mjs`显式真实API验收入口。验收使用独立临时数据目录，不写用户演示数据库；脚本接收`HUAIWEI_DATA_DIR / HUAIWEI_PORT / HUAIWEI_PUBLIC_BASE_URL`。
+**Interfaces:** Consumes全部已实现能力；Produces `bash scripts/dev.sh`启动说明、`bash scripts/check.sh`统一非真实付费API检查、`node scripts/llm-smoke.mjs`显式真实API验收入口。验收使用独立临时数据目录，不写用户演示数据库；脚本接收`JUXIAOBAO_DATA_DIR / JUXIAOBAO_PORT / JUXIAOBAO_PUBLIC_BASE_URL`。
 
 - [ ] **Step 1 — 写剩余验收用例。** 将spec第11节逐条映射至现有测试，缺项补到归属测试文件：真实两context并发、访客/登录混用、套餐售价/去重、0/1/2覆盖、成员未齐、菜单改动/下架、同房间重开、重启、相机拒绝和无效码；不得仅添加复述实现的断言。
 - [ ] **Step 2 — 运行新增用例。** 仅对缺项先跑对应测试，确认因缺失行为失败；若未发现缺项，记录覆盖映射，不人为制造红灯。

@@ -1,7 +1,7 @@
-package huaiwei.auth
+package juxiaobao.auth
 
-import huaiwei.model.*
-import huaiwei.platform.*
+import juxiaobao.model.*
+import juxiaobao.platform.*
 import stdx.encoding.json.*
 import stdx.net.http.*
 
@@ -125,6 +125,27 @@ public func registerAuthRoutes(router: HttpRouter, auth: AuthService, defaults: 
             })
         })
     }
+    router.on("PATCH", "/api/user/profile", {
+        ctx, _ => routeGuard(
+            ctx,
+            auth,
+            true,
+            {
+                =>
+                    let body = authBody(ctx)
+                    rejectUnknown(body, ["nickname"])
+                    let name = try {
+                        body["nickname"].asString().getValue()
+                    } catch (_: Exception) {
+                        throw AuthInputFault()
+                    }
+                    match (auth.updateProfile(ctx.request.headers.getFirst("cookie") ?? "", name)) {
+                        case Ok(value) => jsonResponse(ctx, 200, value.toJson());
+                        case Err(e) => jsonError(ctx, e.status, e.code, e.message)
+                    }
+            }
+        )
+    })
     router.on("GET", "/api/user/default-settings", {
         ctx, _ => routeGuard(ctx, auth, false, {
             => match (defaults.get(auth.resolve(ctx.request.headers.getFirst("cookie") ?? ""))) {
@@ -158,9 +179,11 @@ public func registerAuthRoutes(router: HttpRouter, auth: AuthService, defaults: 
 func parseDefaults(body: JsonObject): UserDefaultSettings {
     try {
         rejectUnknown(body, ["allergens", "avoidFoods", "dietMode", "maxSpiceLevel", "tastePreferences", "appetite"])
-        UserDefaultSettings(
-            appetite: if (body.containsKey("appetite")) { body["appetite"].asString().getValue() } else { "normal" },
-            allergens: body["allergens"].asArray().getItems().toArray().map({v => v.asString().getValue()}),
+        UserDefaultSettings(appetite: if (body.containsKey("appetite")) {
+            body["appetite"].asString().getValue()
+        } else {
+            "normal"
+        }, allergens: body["allergens"].asArray().getItems().toArray().map({v => v.asString().getValue()}),
             avoidFoods: body["avoidFoods"].asArray().getItems().toArray().map({v => v.asString().getValue()}),
             dietMode: body["dietMode"].asString().getValue(), maxSpiceLevel: match (body["maxSpiceLevel"]) {
                 case _: JsonNull => None;

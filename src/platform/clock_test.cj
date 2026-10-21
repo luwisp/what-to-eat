@@ -1,4 +1,4 @@
-package huaiwei.platform
+package juxiaobao.platform
 
 import std.unittest.*
 import std.unittest.testmacro.*

@@ -1,4 +1,4 @@
-package huaiwei.model
+package juxiaobao.model
 
 import std.unittest.*
 import std.unittest.testmacro.*

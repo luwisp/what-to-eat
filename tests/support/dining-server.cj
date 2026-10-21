@@ -1,9 +1,9 @@
 // Integration-only executable. These adapters never enter src/ or main.
-import huaiwei.model.*
-import huaiwei.app.*
-import huaiwei.platform.*
-import huaiwei.store.*
-import huaiwei.room.*
+import juxiaobao.model.*
+import juxiaobao.app.*
+import juxiaobao.platform.*
+import juxiaobao.store.*
+import juxiaobao.room.*
 import std.env.*
 import std.convert.*
 import std.sync.*
@@ -57,10 +57,10 @@ class FixtureIdentity <: IdentityResolver {
 }
 
 main(): Int64 {
-    let port = UInt16.parse(getVariable("HUAIWEI_PORT") ?? "8089")
+    let port = UInt16.parse(getVariable("JUXIAOBAO_PORT") ?? "8089")
     let repo = FixtureRepository()
     let identity = FixtureIdentity()
-    let origin = getVariable("HUAIWEI_PUBLIC_BASE_URL") ?? "http://127.0.0.1:${port}"
+    let origin = getVariable("JUXIAOBAO_PUBLIC_BASE_URL") ?? "http://127.0.0.1:${port}"
     let server = createDiningServer(
         ServerConfig("127.0.0.1", port, false),
         repo,

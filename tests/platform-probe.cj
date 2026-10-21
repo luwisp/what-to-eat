@@ -16,7 +16,7 @@ main(): Int64 {
     let second = random.nextBytes(32)
     if (first == second || first.size != 32) { throw Exception("Random source failed") }
     println("JSON Chinese/unknown/integer roundtrip and secure random: PASS")
-    if (let Some(url) <- getVariable("HUAIWEI_PROBE_HTTPS")) {
+    if (let Some(url) <- getVariable("JUXIAOBAO_PROBE_HTTPS")) {
         var tls = TlsClientConfig()
         tls.serverName = Some("example.com")
         let client = ClientBuilder().tlsConfig(tls).readTimeout(Duration.second * 10).build()

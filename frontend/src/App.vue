@@ -17,7 +17,7 @@ const showTabs = computed(
     <header class="app-header">
       <RouterLink to="/" class="brand"
         ><span class="brand-symbol"><AppIcon name="dish" :size="22" /></span
-        >一起吃<span class="brand-caption"
+        >聚小宝<span class="brand-caption"
           >每个人，都有喜欢的菜</span
         ></RouterLink
       >

@@ -20,6 +20,12 @@ test("real accounts, defaults, two members, v3 meals, manual edits and confirmat
   await expect(
     h.getByRole("button", { name: "保存为我的默认设置" }),
   ).toBeVisible();
+  await h.getByLabel("用户名", { exact: true }).fill("小宝");
+  await h.getByRole("button", { name: "保存用户名" }).click();
+  await expect(h.getByRole("status")).toContainText("用户名已保存");
+  await h.reload();
+  await expect(h.getByLabel("用户名", { exact: true })).toHaveValue("小宝");
+  await h.screenshot({ path: "/tmp/juxiaobao-account.png", fullPage: true });
   await h.getByLabel("食量", { exact: true }).focus();
   await h.keyboard.press("End");
   await h.keyboard.press("ArrowLeft");
@@ -46,26 +52,33 @@ test("real accounts, defaults, two members, v3 meals, manual edits and confirmat
   await expect(h.getByText("热菜 3 / 3 份", { exact: false })).toBeVisible();
   await expect(h.getByRole("button", { name: "确认这桌方案" })).toBeEnabled();
   await h.getByRole("button", { name: "修改这桌方案" }).click();
+  await h.getByRole("button", { name: "增加米饭", exact: true }).click();
+  await expect(h.getByLabel("米饭份数", { exact: true })).toHaveValue("3");
+  await h.getByRole("button", { name: "取消修改", exact: true }).click();
+  await h.reload();
+  await expect(h.getByLabel("米饭份数", { exact: true })).toHaveCount(0);
+  await h.getByRole("button", { name: "修改这桌方案" }).click();
+  await expect(h.getByLabel("米饭份数", { exact: true })).toHaveValue("2");
+
   await h.getByRole("button", { name: "移除 米饭", exact: true }).click();
   await h.getByRole("button", { name: "保存并重新校验" }).click();
   await expect(
     h.getByText("还有需要补齐的地方", { exact: false }),
   ).toBeVisible();
   await expect(h.getByRole("button", { name: "确认这桌方案" })).toHaveCount(0);
-  const menu = await (
-    await h.request.get("/api/restaurants/LAOXIANGJI/menu")
-  ).json();
-  const rice = menu.dishes.find((d: any) => d.name === "米饭");
   await h.getByRole("button", { name: "修改这桌方案" }).click();
-  await h.getByLabel("添加菜品或套餐").selectOption(rice.id);
-  await h.getByRole("button", { name: "加入方案", exact: true }).click();
-  await h
-    .locator(".result-editor > .row")
-    .filter({ has: h.getByText("米饭", { exact: true }) })
-    .getByLabel("份数")
-    .fill("2");
+  await h.getByRole("link", { name: "＋ 从菜单加菜" }).click();
+  await h.getByRole("button", { name: "主食", exact: true }).click();
+  await h.getByRole("button", { name: "增加米饭", exact: true }).click();
+  await h.getByRole("button", { name: "增加米饭", exact: true }).click();
+  await h.getByRole("button", { name: "返回方案", exact: true }).click();
+  await expect(h.getByLabel("米饭份数", { exact: true })).toHaveValue("2");
+  await expect(h.locator(".result-editor")).toHaveCount(0);
+  await h.screenshot({ path: "/tmp/juxiaobao-plan-edit.png", fullPage: true });
   await h.getByRole("button", { name: "保存并重新校验" }).click();
   await expect(h.getByRole("button", { name: "确认这桌方案" })).toBeVisible();
+  await h.getByText("看看每个人怎么吃", { exact: true }).click();
+  await h.screenshot({ path: "/tmp/juxiaobao-result.png", fullPage: true });
   await h.getByRole("button", { name: "确认这桌方案" }).click();
   await expect(h.getByText("本桌已确认", { exact: false })).toBeVisible();
   await g.reload();
@@ -93,11 +106,41 @@ test("real merchant menu writes, package references and live recommendation inva
   ).toBeVisible();
   await page.getByRole("button", { name: "新增菜品" }).click();
   await page.getByLabel("名称", { exact: true }).fill("清蒸鸡肉");
+  await expect(page.getByLabel("用餐角色", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("图片链接", { exact: true })).toHaveCount(0);
+  const exampleMenu = await (
+    await page.request.get("/api/restaurants/LAOXIANGJI/menu")
+  ).json();
+  const imageUrl = exampleMenu.dishes.find((d: any) => d.imageUrl).imageUrl;
+  const image = await (await page.request.get(imageUrl)).body();
+  await page
+    .getByLabel("上传菜品图片", { exact: true })
+    .setInputFiles({ name: "菜品.jpg", mimeType: "image/jpeg", buffer: image });
+  await expect(page.getByAltText("菜品图片预览")).toHaveAttribute(
+    "src",
+    /^\/uploads\/menu\//,
+  );
+
   await page.getByLabel("当前价格（元）").fill("12.5");
   await page.getByLabel("食材（含调料", { exact: false }).fill("鸡肉、土豆");
   await page.getByLabel("主料（可选", { exact: false }).fill("鸡肉");
   await page.getByRole("button", { name: "保存菜品", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("已保存");
+  await page.getByLabel("搜索菜品", { exact: true }).fill("不存在的菜");
+  await expect(page.getByText("没有匹配的菜，换个词试试")).toBeVisible();
+  await page.getByLabel("搜索菜品", { exact: true }).fill("鸡肉");
+  await page
+    .getByRole("button", { name: "编辑 清蒸鸡肉", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByLabel("主料（可选", { exact: false })).toHaveValue(
+    "鸡肉",
+  );
+  await page.getByRole("button", { name: "取消编辑" }).click();
+  await page.screenshot({
+    path: "/tmp/juxiaobao-merchant.png",
+    fullPage: true,
+  });
   const own = await (await page.request.get("/api/merchant/restaurant")).json();
   const code = own.restaurant.restaurantCode;
   expect(code).toMatch(/^R[A-Za-z0-9]{8}$/);
@@ -123,6 +166,7 @@ test("real merchant menu writes, package references and live recommendation inva
     await page.request.get(`/api/restaurants/${code}/menu`)
   ).json();
   const chicken = menu.dishes.find((d: any) => d.name === "清蒸鸡肉");
+  expect((await page.request.get(chicken.imageUrl)).status()).toBe(200);
   expect(
     menu.mealMetadata.find((f: any) => f.dishId === chicken.id)
       .primaryIngredients,
@@ -235,7 +279,7 @@ test("simple preferences keep menu wishes, allergies and implicit staple choice"
     page.getByRole("button", { name: "移除想吃" + wonton.name }),
   ).toHaveAttribute("aria-pressed", "true");
   await page.screenshot({
-    path: "/tmp/huaiwei-preferences-simple.png",
+    path: "/tmp/juxiaobao-preferences-simple.png",
     fullPage: true,
   });
   await page.setViewportSize({ width: 320, height: 700 });
@@ -345,7 +389,7 @@ test("recover entry, invite clearly, edit from members and open visual results",
   expect(
     Math.abs(input!.y + input!.height / 2 - copy!.y - copy!.height / 2),
   ).toBeLessThan(3);
-  await page.screenshot({ path: "/tmp/huaiwei-invite-redesign.png" });
+  await page.screenshot({ path: "/tmp/juxiaobao-invite-redesign.png" });
   await page.keyboard.press("Escape");
   await expect(invite).not.toBeVisible();
   await expect(
@@ -369,7 +413,7 @@ test("recover entry, invite clearly, edit from members and open visual results",
   await expect(page.getByLabel("其他不吃的食物")).toHaveCount(0);
   await page.getByLabel("还有想说的？").fill("今天想清淡一点");
   await page.screenshot({
-    path: "/tmp/huaiwei-preferences-redesign.png",
+    path: "/tmp/juxiaobao-preferences-redesign.png",
     fullPage: true,
   });
   await page.getByRole("button", { name: "提交本局要求" }).click();
@@ -380,7 +424,7 @@ test("recover entry, invite clearly, edit from members and open visual results",
   await expect(companion).not.toBeVisible();
   await expect(page.locator(".dining-members li")).toHaveCount(2);
   await page.screenshot({
-    path: "/tmp/huaiwei-room-redesign.png",
+    path: "/tmp/juxiaobao-room-redesign.png",
     fullPage: true,
   });
   // Delay the completed snapshot to exercise a real loading state under network latency.
@@ -408,7 +452,7 @@ test("recover entry, invite clearly, edit from members and open visual results",
     )
     .toBeGreaterThan(0);
   await page.screenshot({
-    path: "/tmp/huaiwei-result-redesign.png",
+    path: "/tmp/juxiaobao-result-redesign.png",
     fullPage: true,
   });
   await page.setViewportSize({ width: 320, height: 720 });
@@ -426,4 +470,104 @@ test("recover entry, invite clearly, edit from members and open visual results",
   await expect(g).toHaveURL(new RegExp("/s/" + roomCode + "$"));
   await expect(g.locator(".dining-members li")).toHaveCount(3);
   await guest.close();
+});
+
+test("floating conversation stays open, preserves page position and handles replies and edits", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.route("**/api/capabilities", (route) =>
+    route.fulfill({ json: { aiEnabled: true } }),
+  );
+  let latest: any,
+    round = 0;
+  await page.routeWebSocket("**/ws", (ws) => {
+    const server = ws.connectToServer();
+    server.onMessage((message) => {
+      const m = JSON.parse(String(message));
+      if (m.type === "room_state") latest = m;
+      ws.send(message);
+    });
+    ws.onMessage((message) => {
+      const m = JSON.parse(String(message));
+      if (m.type !== "chat_message") {
+        server.send(message);
+        return;
+      }
+      round++;
+      const next = structuredClone(latest);
+      const job = { id: "ui-chat", status: "inProgress", text: m.payload.text };
+      ws.send(
+        JSON.stringify({
+          type: "recommendation_started",
+          requestId: m.requestId,
+          payload: job,
+        }),
+      );
+      next.payload.job = job;
+      ws.send(JSON.stringify(next));
+      setTimeout(() => {
+        next.payload.job = null;
+        next.payload.messages.push({
+          id: "u" + round,
+          role: "user",
+          content: m.payload.text,
+        });
+        next.payload.messages.push({
+          id: "a" + round,
+          role: "agent",
+          content:
+            round === 1 ? "你好！想了解哪道菜？" : "米饭加了一份，其他菜照旧。",
+        });
+        if (round === 2) {
+          const rice = next.payload.recommendation.draft.items.find(
+            (i: any) => i.name === "米饭",
+          );
+          rice.quantity++;
+          next.payload.recommendation.draft.totalFen += rice.unitPriceFen;
+        }
+        latest = next;
+        ws.send(JSON.stringify(next));
+      }, 350);
+    });
+  });
+  await page.goto("/r/LAOXIANGJI");
+  await page.getByLabel("用餐人数").fill("4");
+  await page.getByRole("button", { name: "创建聚餐局" }).click();
+  await page.getByRole("link", { name: "填写我的要求", exact: true }).click();
+  await page.getByRole("button", { name: "提交本局要求" }).click();
+  await page.getByRole("button", { name: "看看怎么点", exact: true }).click();
+  await expect(page).toHaveURL(/\/result$/);
+  await page.evaluate(() => window.scrollTo(0, 400));
+  const before = await page.evaluate(() => window.scrollY);
+  expect(before).toBeGreaterThan(100);
+  await page.getByRole("button", { name: "找点菜员聊聊" }).click();
+  const chat = page.getByRole("dialog", { name: "点菜员对话" });
+  await expect(chat).toBeVisible();
+  await chat.getByLabel("和点菜员说说").fill("你好");
+  await chat.getByRole("button", { name: "发送", exact: true }).click();
+  await expect(
+    chat.getByText("你好！想了解哪道菜？", { exact: true }),
+  ).toBeVisible();
+  await expect(chat).toBeVisible();
+  expect(
+    Math.abs((await page.evaluate(() => window.scrollY)) - before),
+  ).toBeLessThan(20);
+  await chat.getByLabel("和点菜员说说").fill("米饭加一份");
+  await chat.getByRole("button", { name: "发送", exact: true }).click();
+  await expect(
+    chat.getByText("米饭加了一份，其他菜照旧。", { exact: true }),
+  ).toBeVisible();
+  await expect(chat).toBeVisible();
+  expect(
+    Math.abs((await page.evaluate(() => window.scrollY)) - before),
+  ).toBeLessThan(20);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.screenshot({ path: "/tmp/juxiaobao-floating-chat.png" });
+  await chat.getByRole("button", { name: "收起点菜员" }).click();
+  await expect(chat).not.toBeVisible();
 });

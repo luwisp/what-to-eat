@@ -1,4 +1,4 @@
-package huaiwei.platform
+package juxiaobao.platform
 
 import std.collection.*
 import std.io.*
@@ -159,7 +159,7 @@ public func createHttpServer(config: ServerConfig, configure!: (HttpRouter) -> U
     let server = ServerBuilder()
         .addr(config.host)
         .port(config.port)
-        .maxRequestBodySize(65536)
+        .maxRequestBodySize(3000000)
         .distributor(router)
         .build()
     server.logger.level = LogLevel.OFF

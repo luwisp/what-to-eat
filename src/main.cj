@@ -1,6 +1,6 @@
-package huaiwei
+package juxiaobao
 
-import huaiwei.app.*
+import juxiaobao.app.*
 
 main(): Int64 {
     startServer(serverConfigFromEnvironment())

@@ -1,7 +1,7 @@
-package huaiwei.store
+package juxiaobao.store
 
-import huaiwei.model.*
-import huaiwei.platform.*
+import juxiaobao.model.*
+import juxiaobao.platform.*
 import std.fs.*
 import sqlite4cj.*
 import std.unittest.*

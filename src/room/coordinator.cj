@@ -1,7 +1,7 @@
-package huaiwei.room
+package juxiaobao.room
 
-import huaiwei.model.*
-import huaiwei.agent.*
+import juxiaobao.model.*
+import juxiaobao.agent.*
 
 class JobCell {
     public var job: ?RecommendationJob = None;
@@ -50,9 +50,8 @@ public class RecommendationCoordinator {
                 if (let Some(message) <- text) {
                     demand(!message.trimAscii().isEmpty() && message.toRuneArray().size <= 200, "INVALID_NOTE",
                         "对话须为1至200字")
-                    demand(!s.recommendationInvalid && db
-                        .recommendations
-                        .any({r => r.sessionId == s.id}), "CHAT_DISABLED", "请先生成有效方案再调整")
+                    demand(!s.recommendationInvalid && db.recommendations.any({r => r.sessionId == s.id}),
+                        "CHAT_DISABLED", "请先生成有效方案再调整")
                 }
                 let job = RecommendationJob(id: newId(), sessionId: s.id, requesterId: me.id, requestId: requestId,
                     roomVersion: s.stateVersion, menuVersion: roomMenu(db, s).menuVersion,
@@ -134,7 +133,8 @@ public class RecommendationCoordinator {
                         "rules"
                     }, draft: validated.unwrap(), createdAt: rooms.clock.wallMillis(),
                     canConfirm: members.size >= s.people && members.all({p => p.submitted}) &&
-                        validated.unwrap().uncoveredIds.isEmpty() && (input.menu.mealMetadata.isEmpty() || validated.unwrap().mealStatus == "complete"))
+                        validated.unwrap().uncoveredIds.isEmpty() && (input.menu.mealMetadata.isEmpty() ||
+                        validated.unwrap().mealStatus == "complete"))
                 db.recommendations = db.recommendations.filter({old => old.sessionId != s.id}).concat([r])
                 for (j in db.jobs) {
                     if (j.id == job.id) {
@@ -172,6 +172,47 @@ public class RecommendationCoordinator {
             return Outcome.Err(e)
         }
         return Outcome.Ok(result.snapshot.getOrThrow())
+    }
+    // Conversation-only completion keeps recommendation identity, contents,
+    // confirmation state and version untouched, while retaining job race checks.
+    public func commitMessage(job: RecommendationJob, text: String): Outcome<RoomSnapshot> {
+        let result = JobCell()
+        let commit = rooms.repository.transact({
+            db => try {
+                inputFor(db, job)
+                demand(job.text.isSome(), "INVALID_JOB", "只有对话任务可以单独回复")
+                let s = db.sessions.filter({s => s.id == job.sessionId})[0]
+                let history = db.chatMessages.filter({m => m.sessionId == s.id})
+                let keep = if (history.size > 19) {
+                    history[history.size - 19..]
+                } else {
+                    history
+                }
+                db.chatMessages = db
+                    .chatMessages
+                    .filter({m => m.sessionId != s.id})
+                    .concat(keep)
+                    .concat(
+                        [ChatMessage(id: newId(), sessionId: s.id, sender: "agent", role: "agent", content: text,
+                            createdAt: rooms.clock.wallMillis())])
+                for (j in db.jobs) {
+                    if (j.id == job.id) {
+                        j.status = "completed"
+                    }
+                }
+                let requester = db.participants.filter({p => p.id == job.requesterId})[0]
+                result.snapshot = Some(
+                    roomSnapshot(db, s, Actor(visitorId: requester.visitorId, userId: requester.userId)))
+                Outcome.Ok(db)
+            } catch (e: RoomFault) {
+                Outcome.Err(e.error)
+            }
+        })
+        if (let Err(e) <- commit) {
+            release(job.id, "failed");
+            return Outcome.Err(e)
+        }
+        Outcome.Ok(result.snapshot.getOrThrow())
     }
     public func release(jobId: String, status: String): Unit {
         rooms.repository.transact(

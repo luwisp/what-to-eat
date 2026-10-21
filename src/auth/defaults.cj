@@ -1,8 +1,8 @@
-package huaiwei.auth
+package juxiaobao.auth
 
-import huaiwei.model.*
-import huaiwei.store.*
-import huaiwei.platform.*
+import juxiaobao.model.*
+import juxiaobao.store.*
+import juxiaobao.platform.*
 
 public class DefaultSettingsService {
     let repository: Repository

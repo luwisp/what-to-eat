@@ -7,16 +7,16 @@
 需仓颉 SDK 1.2.0、Node 22、curl/git/CMake/Clang15/OpenSSL 开发头文件。SDK 路径可配置：
 
 ```sh
-export HUAIWEI_CANGJIE_SDK=/你的路径/cangjie
+export JUXIAOBAO_CANGJIE_SDK=/你的路径/cangjie
 bash scripts/bootstrap-deps.sh
 # 系统 Clang/OpenSSL 不适配且已安装 conda 时，可用项目内隔离工具：
 bash scripts/bootstrap-deps.sh --local-tools
 npm ci
 bash scripts/cj.sh build -j 4
-bash scripts/cj.sh exec target/release/bin/huaiwei
+bash scripts/cj.sh exec target/release/bin/juxiaobao
 ```
 
-服务默认 `127.0.0.1:8080`，通过 `HUAIWEI_HOST/HUAIWEI_PORT` 覆盖。`GET /health` 是实际仓颉服务；当前尚未装配业务 API。测试 echo 仅在 `HUAIWEI_ENABLE_PROBES=true` 启用。
+服务默认 `127.0.0.1:8080`，通过 `JUXIAOBAO_HOST/JUXIAOBAO_PORT` 覆盖。`GET /health` 是实际仓颉服务；当前尚未装配业务 API。测试 echo 仅在 `JUXIAOBAO_ENABLE_PROBES=true` 启用。
 
 `scripts/cj.sh` 在子进程加载 SDK、可选 `.deps/build-tools`、stdx 动态库路径。不要要求团队复制本机绝对安装路径。首次源代码构建较慢；依赖缓存均在忽略的 `.deps/`、`build-script-cache/`、`target/`。
 
@@ -35,7 +35,7 @@ bash scripts/cj.sh exec target/release/bin/huaiwei
 ```sh
 bash scripts/check-platform.sh
 # 可选外网 TLS 探针，一般离线验收不要求外网：
-HUAIWEI_PROBE_HTTPS=https://example.com bash scripts/check-platform.sh
+JUXIAOBAO_PROBE_HTTPS=https://example.com bash scripts/check-platform.sh
 ```
 
 包含真实 HTTP、两个独立 WS 客户端/重连、正常模式禁用探针、单调时间截止、密码散列向量、JSON/随机源和跨进程 SQLite 探针。测试运行器与服务需要本地 socket 权限；受限沙箱的 EPERM 不能当业务失败。平台验证不代表账号、房间、菜单等业务已完成。

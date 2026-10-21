@@ -1,4 +1,4 @@
-package huaiwei.model
+package juxiaobao.model
 
 // Services implement these narrow ports; composition owns concrete dependencies.
 public interface CatalogReader {

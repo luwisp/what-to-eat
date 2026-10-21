@@ -69,19 +69,27 @@ function clean(value: unknown): Preferences {
     p.note = Array.from(v.note).slice(0, 200).join("");
   return p;
 }
+// One-time read compatibility for existing browser drafts after the app rename.
+function storedDraft(key: DraftKey, storage: DraftStorage): string | null {
+  const current = storage.getItem("juxiaobao:draft:" + key);
+  if (current !== null) return current;
+  const legacy = storage.getItem("huaiwei:draft:" + key);
+  if (legacy !== null) storage.setItem("juxiaobao:draft:" + key, legacy);
+  return legacy;
+}
 export function loadDraft(
   key: DraftKey,
   storage: DraftStorage = localStorage,
 ): Preferences {
   try {
-    return clean(JSON.parse(storage.getItem("huaiwei:draft:" + key) ?? "null"));
+    return clean(JSON.parse(storedDraft(key, storage) ?? "null"));
   } catch {
     return emptyPreferences();
   }
 }
 export function hasDraft(key: DraftKey): boolean {
   try {
-    return localStorage.getItem("huaiwei:draft:" + key) !== null;
+    return storedDraft(key, localStorage) !== null;
   } catch {
     return false;
   }
@@ -92,7 +100,7 @@ export function saveDraft(
   storage: DraftStorage = localStorage,
 ) {
   try {
-    storage.setItem("huaiwei:draft:" + key, JSON.stringify(clean(prefs)));
+    storage.setItem("juxiaobao:draft:" + key, JSON.stringify(clean(prefs)));
   } catch {
     /* In-memory input remains usable if storage is unavailable. */
   }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onBeforeUnmount } from "vue";
 const open = defineModel<boolean>({ required: true });
-defineProps<{ title: string }>();
+defineProps<{ title: string; wide?: boolean }>();
 const dialog = ref<HTMLDialogElement>();
 watch(
   open,
@@ -19,6 +19,7 @@ onBeforeUnmount(() => dialog.value?.close());
     <dialog
       ref="dialog"
       class="modal-shell"
+      :class="{ 'modal-wide': wide }"
       :aria-label="title"
       @cancel.prevent="open = false"
       @click="

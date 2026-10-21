@@ -1,11 +1,38 @@
-package huaiwei.room
+package juxiaobao.room
 
-import huaiwei.model.*
+import juxiaobao.model.*
 import std.unittest.*
 import std.unittest.testmacro.*
 
 @Test
 class CoordinatorTests {
+    @TestCase
+    func ordinaryReplyKeepsRecommendationIdentityAndRejectsStaleJobs() {
+        let repo = TestRepository()
+        repo.data.dishes = [Dish(id: "a", restaurantId: "r", ingredients: ["土豆"], priceFen: 1000)]
+        let rooms = RoomService(repo, TestClock())
+        let c = RecommendationCoordinator(rooms)
+        let actor = Actor(visitorId: Some("host"))
+        let room = rooms.create(actor, CreateSessionInput(restaurantCode: "TEST", people: 1), "create").unwrap()
+        rooms
+            .apply(actor, room.session.roomCode, RoomCommand.UpdatePreferences(Preferences(), true), room.stateVersion,
+                "submit")
+            .unwrap()
+        let rec = c.request(actor, room.session.roomCode, "recommend", None).unwrap()
+        let full = c.commitResult(rec, c.calculate(rec).unwrap(), "rules").unwrap()
+        let chat = c.request(actor, room.session.roomCode, "hello", None, text: Some("你好")).unwrap()
+        let replied = c.commitMessage(chat, "你好，一起看看菜单吧。").unwrap()
+        @Expect(replied.recommendation.getOrThrow().toJson().toString(), full.recommendation.getOrThrow().toJson().toString())
+        @Expect(replied.stateVersion, full.stateVersion)
+        @Expect(replied.messages[replied.messages.size - 1].content, "你好，一起看看菜单吧。")
+        @Expect(replied.job.isNone(), true)
+        let stale = c.request(actor, room.session.roomCode, "question", None, text: Some("有什么招牌")).unwrap()
+        rooms
+            .apply(actor, room.session.roomCode, RoomCommand.UpdatePreferences(Preferences(), true),
+                replied.stateVersion, "changed-prefs")
+            .unwrap()
+        @Expect(c.commitMessage(stale, "过期回答").isOk(), false)
+    }
     @TestCase
     func manualMealEditsRecheckCompletenessAndRejectStaleVersions() {
         let repo = TestRepository()
@@ -17,17 +44,24 @@ class CoordinatorTests {
         let c = RecommendationCoordinator(rooms)
         let actor = Actor(visitorId: Some("host"))
         let room = rooms.create(actor, CreateSessionInput(restaurantCode: "TEST", people: 1), "create").unwrap()
-        rooms.apply(actor, room.session.roomCode, RoomCommand.UpdatePreferences(Preferences(), true), room.stateVersion, "submit").unwrap()
+        rooms
+            .apply(actor, room.session.roomCode, RoomCommand.UpdatePreferences(Preferences(), true), room.stateVersion,
+                "submit")
+            .unwrap()
         let job = c.request(actor, room.session.roomCode, "recommend", None).unwrap()
         let full = c.commitResult(job, c.calculate(job).unwrap(), "rules").unwrap()
         @Expect(full.recommendation.getOrThrow().canConfirm, true)
         let items = full.recommendation.getOrThrow().draft.items
-        let changed = rooms.apply(actor, room.session.roomCode,
-            RoomCommand.EditResult(items.filter({i => i.itemId != "rice"})), full.stateVersion, "remove-rice").unwrap()
+        let changed = rooms
+            .apply(actor, room.session.roomCode, RoomCommand.EditResult(items.filter({i => i.itemId != "rice"})),
+                full.stateVersion, "remove-rice")
+            .unwrap()
         @Expect(changed.recommendation.getOrThrow().canConfirm, false)
         @Expect(changed.recommendation.getOrThrow().draft.mealStatus, "partial")
         @Expect(rooms.apply(actor, room.session.roomCode, RoomCommand.EditResult(items), full.stateVersion, "stale").isOk(), false)
-        let restored = rooms.apply(actor, room.session.roomCode, RoomCommand.EditResult(items), changed.stateVersion, "restore").unwrap()
+        let restored = rooms
+            .apply(actor, room.session.roomCode, RoomCommand.EditResult(items), changed.stateVersion, "restore")
+            .unwrap()
         @Expect(restored.recommendation.getOrThrow().canConfirm, true)
     }
 
@@ -46,8 +80,8 @@ class CoordinatorTests {
         repo.transact(
             {
                 db =>
-                db.menuVersions[0].menuVersion = 2
-                Outcome.Ok(db)
+                    db.menuVersions[0].menuVersion = 2
+                    Outcome.Ok(db)
             }
         )
         let latest = rooms.snapshot(actor, room.session.roomCode).unwrap()
@@ -75,8 +109,8 @@ class CoordinatorTests {
         repo.transact(
             {
                 db =>
-                db.menuVersions[0].menuVersion = 2
-                Outcome.Ok(db)
+                    db.menuVersions[0].menuVersion = 2
+                    Outcome.Ok(db)
             }
         )
         c.invalidateRestaurantRooms("r", 2)
@@ -109,9 +143,9 @@ class CoordinatorTests {
         repo.transact(
             {
                 db =>
-                db.menuVersions[0].menuVersion = 2
-                db.dishes[0].ingredients = ["青椒", "unknown"]
-                Outcome.Ok(db)
+                    db.menuVersions[0].menuVersion = 2
+                    db.dishes[0].ingredients = ["青椒", "unknown"]
+                    Outcome.Ok(db)
             }
         )
         c.invalidateRestaurantRooms("r", 2)

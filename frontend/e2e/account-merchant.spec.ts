@@ -132,6 +132,7 @@ test("merchant fields preserve unknown and exact cents; server errors retain for
   await expect(page.getByLabel("名称", { exact: true })).toHaveValue(
     "招牌小炒",
   );
+  await page.getByRole("button", { name: "取消编辑", exact: true }).click();
   await page.getByRole("button", { name: "餐馆入口", exact: true }).click();
   await expect(
     page.getByRole("link", { name: entry.link, exact: true }),

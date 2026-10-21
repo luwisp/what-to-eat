@@ -1,7 +1,7 @@
-package huaiwei.agent
+package juxiaobao.agent
 
-import huaiwei.model.*
-import huaiwei.platform.*
+import juxiaobao.model.*
+import juxiaobao.platform.*
 import std.collection.*
 import std.sort.*
 import stdx.encoding.json.*
@@ -995,7 +995,7 @@ func mealDraft(f: MealFacts, s: MealState, supplied!: ?RecommendationDraft = Non
         } else {
             []
         })
-        .concat(["饭量单位是点菜估算，不是重量、卡路里或饱腹保证；动态愿望不写账号默认值。"])
+        .concat(["份量按点菜习惯估算，可按实际饭量调整。"])
     draft
 }
 

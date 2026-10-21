@@ -17,7 +17,7 @@ export default defineConfig({
     },
     {
       command:
-        "HUAIWEI_API_ORIGIN=http://127.0.0.1:8095 npm run dev -- --port 4175",
+        "JUXIAOBAO_API_ORIGIN=http://127.0.0.1:8095 npm run dev -- --port 4175",
       url: "http://127.0.0.1:4175",
       timeout: 30000,
     },

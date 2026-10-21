@@ -2,7 +2,7 @@
 import std.env.*
 import std.fs.*
 import std.io.*
-import huaiwei.model.*
+import juxiaobao.model.*
 import stdx.encoding.json.*
 
 main(): Int64 {

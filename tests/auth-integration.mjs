@@ -8,7 +8,7 @@ import { once } from 'node:events';
 import test from 'node:test';
 
 test('production startup, account isolation, logout and SQLite restart persistence', { timeout: 90000 }, async t => {
-  const directory = await mkdtemp(join(tmpdir(), 'huaiwei-auth-'));
+  const directory = await mkdtemp(join(tmpdir(), 'juxiaobao-auth-'));
   const db = join(directory, 'app.sqlite');
   const reservation = createServer();
   reservation.listen(0, '127.0.0.1');
@@ -23,11 +23,11 @@ test('production startup, account isolation, logout and SQLite restart persisten
   }
   t.after(async () => { await stop(); await rm(directory, {recursive:true, force:true}); });
   async function start(launcher) {
-    const env = {...process.env, HUAIWEI_HOST:'127.0.0.1', HUAIWEI_PORT:String(port),
-      HUAIWEI_DB_PATH:db, HUAIWEI_ENV_FILE:'/dev/null', DEEPSEEK_API_KEY:'', DEEPSEEK_MODEL:''};
-    delete env.HUAIWEI_PUBLIC_BASE_URL;
+    const env = {...process.env, JUXIAOBAO_HOST:'127.0.0.1', JUXIAOBAO_PORT:String(port),
+      JUXIAOBAO_DB_PATH:db, JUXIAOBAO_ENV_FILE:'/dev/null', DEEPSEEK_API_KEY:'', DEEPSEEK_MODEL:''};
+    delete env.JUXIAOBAO_PUBLIC_BASE_URL;
     output = '';
-    child = spawn('bash', launcher ? ['scripts/dev.sh'] : ['scripts/cj.sh','exec','target/release/bin/huaiwei'], {env, stdio:['ignore','pipe','pipe']});
+    child = spawn('bash', launcher ? ['scripts/dev.sh'] : ['scripts/cj.sh','exec','target/release/bin/juxiaobao'], {env, stdio:['ignore','pipe','pipe']});
     closed = once(child, 'exit');
     child.stdout.on('data', d => output += d);
     child.stderr.on('data', d => output += d);
@@ -60,6 +60,13 @@ test('production startup, account isolation, logout and SQLite restart persisten
   assert.equal((await request('/api/user/login','POST',{...account,password:'wrong-password'})).status,401);
   const auth = cookie(await request('/api/user/login','POST',account,visitor));
   const both = visitor+'; '+auth;
+  assert.equal((await request('/api/user/profile','PATCH',{nickname:'测试用户名'})).status,401);
+  assert.equal((await request('/api/user/profile','PATCH',{nickname:'x'.repeat(41)},both)).status,400);
+  assert.equal((await request('/api/user/profile','PATCH',{nickname:'bad\nname'},both)).status,400);
+  assert.equal((await request('/api/user/profile','PATCH',{nickname:'我的用户名',userId:'other'},both)).status,400);
+  const profile = await request('/api/user/profile','PATCH',{nickname:'  我的用户名  '},both);
+  assert.equal(profile.status,200);
+  assert.equal((await profile.json()).nickname,'我的用户名');
   const settings = {appetite:'large',allergens:['花生'],avoidFoods:['香菜'],dietMode:'none',maxSpiceLevel:1,tastePreferences:['清淡']};
   assert.equal((await request('/api/user/default-settings','PUT',settings,both)).status,200);
   assert.equal((await request('/api/user/default-settings','GET')).status,401);
@@ -69,10 +76,11 @@ test('production startup, account isolation, logout and SQLite restart persisten
   const room = await roomResponse.json();
   const code = room.session.roomCode;
   const id = room.self.id;
+  assert.equal(room.self.nickname,'我的用户名');
   await stop();
   // Also exercise the bare compiled entry's default origin, with the same DB.
   await start(false);
-  assert.equal((await request('/api/user/me','GET',undefined,both)).status,200);
+  assert.equal((await (await request('/api/user/me','GET',undefined,both)).json()).nickname,'我的用户名');
   const restored = await (await request('/api/user/default-settings','GET',undefined,both)).json();
   for (const [key,value] of Object.entries(settings)) assert.deepEqual(restored[key],value,key);
   assert.equal((await (await request('/api/sessions/'+code,'GET',undefined,both)).json()).self.id,id);
@@ -84,6 +92,19 @@ test('production startup, account isolation, logout and SQLite restart persisten
   const merchant = cookie(await request('/api/merchant/login','POST',account));
   assert.equal((await request('/api/merchant/me','GET',undefined,merchant)).status,200);
   assert.equal((await request('/api/user/me','GET',undefined,merchant)).status,401);
+  assert.equal((await request('/api/merchant/restaurant','POST',{name:'上传图片测试店',description:''},merchant)).status,204);
+  assert.equal((await request('/api/merchant/images','POST',{data:'invalid'})).status,401);
+  assert.equal((await request('/api/merchant/images','POST',{data:Buffer.from('<svg>bad</svg>').toString('base64')},merchant)).status,400);
+  assert.equal((await request('/api/merchant/images','POST',{data:'A'.repeat(2800001)},merchant)).status,413);
+  const menu = await (await request('/api/restaurants/LAOXIANGJI/menu')).json();
+  const imageBytes=Buffer.from(await (await request(menu.dishes.find(d=>d.imageUrl).imageUrl)).arrayBuffer());
+  const uploaded = await request('/api/merchant/images','POST',{data:imageBytes.toString('base64')},merchant);
+  assert.equal(uploaded.status,201);
+  const uploadedUrl=(await uploaded.json()).imageUrl;
+  assert.match(uploadedUrl,/^\/uploads\/menu\/[a-zA-Z0-9-]+\.(jpg|png|webp)$/);
+  assert.equal((await request(uploadedUrl)).headers.get('x-content-type-options'),'nosniff');
+  await stop();await start(false);
+  assert.deepEqual(Buffer.from(await (await request(uploadedUrl)).arrayBuffer()),imageBytes);
   assert.equal((await request('/api/merchant/logout','POST',undefined,merchant)).status,204);
   assert.equal((await request('/api/merchant/me','GET',undefined,merchant)).status,401);
 });

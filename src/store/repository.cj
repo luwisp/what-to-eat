@@ -1,6 +1,6 @@
-package huaiwei.store
+package juxiaobao.store
 
-import huaiwei.model.*
+import juxiaobao.model.*
 
 // All modules share one repository. Implementations belong to teammate B1.
 // read returns a detached snapshot. transact gives change an isolated working

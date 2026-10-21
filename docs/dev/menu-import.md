@@ -8,7 +8,7 @@
 python3 scripts/import-menu.py
 ```
 
-默认读取 `data/fixtures/老乡鸡菜谱.xlsx`，写入 `data/runtime/huaiwei.sqlite`，导出图片到 `web/menu-images/`。数据库和导出图片都是忽略的运行数据；提交源 Excel 和脚本即可在其他机器重建。
+默认读取 `data/fixtures/老乡鸡菜谱.xlsx`，写入 `data/runtime/juxiaobao.sqlite`，导出图片到 `web/menu-images/`。数据库和导出图片都是忽略的运行数据；提交源 Excel 和脚本即可在其他机器重建。
 
 校验而不落盘：
 
@@ -21,7 +21,7 @@ python3 scripts/import-menu.py --dry-run
 ```sh
 python3 scripts/import-menu.py \
   --source data/fixtures/老乡鸡菜谱.xlsx \
-  --db data/runtime/huaiwei.sqlite \
+  --db data/runtime/juxiaobao.sqlite \
   --restaurant-code LAOXIANGJI --restaurant-name 老乡鸡 \
   --owner-id 已存在的商家ID \
   --snapshot-out data/runtime/snapshot.json
@@ -67,7 +67,7 @@ python3 scripts/import-menu.py \
 ```sh
 python3 - <<'PY'
 import sqlite3
-with sqlite3.connect('data/runtime/huaiwei.sqlite') as db:
+with sqlite3.connect('data/runtime/juxiaobao.sqlite') as db:
     print(db.execute('SELECT name,restaurantCode FROM restaurants').fetchall())
     print(db.execute('SELECT COUNT(*) FROM dishes').fetchone())
     print(db.execute('SELECT name,priceFen,category FROM dishes LIMIT 5').fetchall())

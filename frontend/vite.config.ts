@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import process from "node:process";
-const backend = process.env.HUAIWEI_API_ORIGIN ?? "http://127.0.0.1:8080";
+const backend = process.env.JUXIAOBAO_API_ORIGIN ?? "http://127.0.0.1:8080";
 export default defineConfig({
   plugins: [vue()],
   build: {
@@ -13,6 +13,7 @@ export default defineConfig({
     proxy: {
       "/api": backend,
       "/menu-images": backend,
+      "/uploads": backend,
       "/ws": { target: backend.replace("http", "ws"), ws: true },
     },
   },

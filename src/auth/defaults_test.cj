@@ -1,6 +1,6 @@
-package huaiwei.auth
+package juxiaobao.auth
 
-import huaiwei.model.*
+import juxiaobao.model.*
 import stdx.encoding.json.*
 import std.unittest.*
 import std.unittest.testmacro.*

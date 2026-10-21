@@ -7,7 +7,7 @@ import WebSocket from 'ws';
 
 async function server(t){
  const reserve=createServer();reserve.listen(0,'127.0.0.1');await once(reserve,'listening');const port=reserve.address().port;await new Promise(r=>reserve.close(r));
- let output='';const child=spawn('bash',['scripts/cj.sh','exec','target/integration/dining-server'],{env:{...process.env,HUAIWEI_PORT:String(port)},stdio:['ignore','pipe','pipe']});
+ let output='';const child=spawn('bash',['scripts/cj.sh','exec','target/integration/dining-server'],{env:{...process.env,JUXIAOBAO_PORT:String(port)},stdio:['ignore','pipe','pipe']});
  child.stdout.on('data',x=>{output+=x});child.stderr.on('data',x=>{output+=x});const exited=once(child,'exit');
  t.after(async()=>{if(child.exitCode===null)child.kill();await exited});
  const origin=`http://127.0.0.1:${port}`;

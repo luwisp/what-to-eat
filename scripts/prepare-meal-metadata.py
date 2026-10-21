@@ -60,7 +60,7 @@ def prepare(db_path, output, code='LAOXIANGJI', assets=None):
 
 if __name__ == '__main__':
     cli = argparse.ArgumentParser(description=__doc__)
-    cli.add_argument('--db', type=Path, default=ROOT / 'data/runtime/huaiwei.sqlite')
+    cli.add_argument('--db', type=Path, default=ROOT / 'data/runtime/juxiaobao.sqlite')
     cli.add_argument('--output', type=Path, default=ROOT / 'data/runtime/meal-metadata.json')
     cli.add_argument('--restaurant-code', default='LAOXIANGJI')
     args = cli.parse_args()

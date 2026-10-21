@@ -7,18 +7,18 @@
 准备项目 SDK 与依赖后，在仓库根目录运行：
 
 ```sh
-export HUAIWEI_CANGJIE_SDK=/你的SDK目录/cangjie
+export JUXIAOBAO_CANGJIE_SDK=/你的SDK目录/cangjie
 bash scripts/algorithm-dev.sh
 ```
 
 浏览器打开 `http://127.0.0.1:8091`。远程环境需转发 8091 端口。当前 Sandbox 已有构建缓存，可运行：
 
 ```sh
-HUAIWEI_CANGJIE_SDK=/tmp/huaiwei-sdk/cangjie \
-  HUAIWEI_DEV_SKIP_BUILD=true bash scripts/algorithm-dev.sh
+JUXIAOBAO_CANGJIE_SDK=/tmp/juxiaobao-sdk/cangjie \
+  JUXIAOBAO_DEV_SKIP_BUILD=true bash scripts/algorithm-dev.sh
 ```
 
-`HUAIWEI_DEV_SKIP_BUILD=true` 跳过全工程依赖构建，仍编译最新独立 agent 与 dev server。`--build-only` 只编译。可配置 `HUAIWEI_DEV_PORT`、`HUAIWEI_DEV_DB` 和 `HUAIWEI_DEV_RESTAURANT`。
+`JUXIAOBAO_DEV_SKIP_BUILD=true` 跳过全工程依赖构建，仍编译最新独立 agent 与 dev server。`--build-only` 只编译。可配置 `JUXIAOBAO_DEV_PORT`、`JUXIAOBAO_DEV_DB` 和 `JUXIAOBAO_DEV_RESTAURANT`。
 
 ## 交互
 
@@ -58,9 +58,9 @@ bash scripts/test-algorithm-dev.sh
 ## Azure IP 直接访问
 
 ```sh
-HUAIWEI_DEV_HOST=0.0.0.0 HUAIWEI_DEV_ORIGIN=http://20.48.96.44:8091 \
-HUAIWEI_CANGJIE_SDK=/tmp/huaiwei-sdk/cangjie HUAIWEI_DEV_SKIP_BUILD=true \
+JUXIAOBAO_DEV_HOST=0.0.0.0 JUXIAOBAO_DEV_ORIGIN=http://20.48.96.44:8091 \
+JUXIAOBAO_CANGJIE_SDK=/tmp/juxiaobao-sdk/cangjie JUXIAOBAO_DEV_SKIP_BUILD=true \
 bash scripts/algorithm-dev.sh
 ```
 
-Azure 网络安全组入站需允许 TCP 8091；访问 `http://20.48.96.44:8091/`，不需要域名或 SSH 隧道。换 IP/端口时同步修改 `HUAIWEI_DEV_ORIGIN`；服务仍拒绝其他网页发起的跨源推荐请求。
+Azure 网络安全组入站需允许 TCP 8091；访问 `http://20.48.96.44:8091/`，不需要域名或 SSH 隧道。换 IP/端口时同步修改 `JUXIAOBAO_DEV_ORIGIN`；服务仍拒绝其他网页发起的跨源推荐请求。

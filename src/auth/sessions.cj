@@ -1,6 +1,6 @@
-package huaiwei.auth
+package juxiaobao.auth
 
-import huaiwei.model.*
+import juxiaobao.model.*
 
 func cookieName(kind: AccountKind): String {
     "hw_" + kind.toWire()

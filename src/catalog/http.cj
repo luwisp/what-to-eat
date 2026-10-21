@@ -1,10 +1,10 @@
-package huaiwei.catalog
+package juxiaobao.catalog
 
-import huaiwei.model.*
-import huaiwei.store.*
-import huaiwei.auth.*
-import huaiwei.platform.*
-import huaiwei.room.*
+import juxiaobao.model.*
+import juxiaobao.store.*
+import juxiaobao.auth.*
+import juxiaobao.platform.*
+import juxiaobao.room.*
 import stdx.encoding.json.*
 
 class CatalogCommit {

@@ -1,8 +1,8 @@
-package huaiwei.room
+package juxiaobao.room
 
-import huaiwei.model.*
-import huaiwei.platform.*
-import huaiwei.agent.*
+import juxiaobao.model.*
+import juxiaobao.platform.*
+import juxiaobao.agent.*
 import std.collection.*
 import std.sync.*
 import stdx.net.http.*
@@ -305,8 +305,9 @@ public class DiningTransport {
                             assistant.recommend(input, deadline)
                         }
                         if (let Ok(value) <- result) {
-                            let saved = coordinator.commitResult(work, value.draft, value.mode,
-                                explanation: value.explanation)
+                            let saved = if (value.changed) {
+                                coordinator.commitResult(work, value.draft, value.mode, explanation: value.explanation)
+                            } else { coordinator.commitMessage(work, value.explanation) }
                             if (let Err(e) <- saved) {
                                 sendError(connection, e, "")
                             }

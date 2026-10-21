@@ -11,14 +11,14 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "HUAIWEI_PORT=8089 HUAIWEI_PUBLIC_BASE_URL=http://127.0.0.1:4173 bash ../scripts/cj.sh exec target/integration/dining-server",
+        "JUXIAOBAO_PORT=8089 JUXIAOBAO_PUBLIC_BASE_URL=http://127.0.0.1:4173 bash ../scripts/cj.sh exec target/integration/dining-server",
       url: "http://127.0.0.1:8089/health",
       reuseExistingServer: false,
       timeout: 30000,
     },
     {
       command:
-        "HUAIWEI_API_ORIGIN=http://127.0.0.1:8089 npm run dev -- --port 4173",
+        "JUXIAOBAO_API_ORIGIN=http://127.0.0.1:8089 npm run dev -- --port 4173",
       url: "http://127.0.0.1:4173",
       reuseExistingServer: false,
       timeout: 30000,

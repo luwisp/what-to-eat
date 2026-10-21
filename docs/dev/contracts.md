@@ -7,7 +7,7 @@
 ## 工程入口与路由
 
 - `src/main.cj` → `src/app/server.cj`。Cangjie的main是关键字，不能作为子包；原计划的`src/main/server.cj`对应实际`src/app/server.cj`。
-- 模块导入`huaiwei.platform.*`、`huaiwei.model.*`、`huaiwei.store.*`。
+- 模块导入`juxiaobao.platform.*`、`juxiaobao.model.*`、`juxiaobao.store.*`。
 - `HttpRouter.on(method, path, handler)`：method采用大写，path支持整段`:id`参数；handler为`(HttpContext, HashMap<String,String>) -> Unit`，在服务启动前注册。路径参数不含query，短码/id采用不含斜杠的字母数字/短横线。不要将用户输入直接拼进路径规则。
 - `jsonResponse(ctx,status,value:JsonValue)`与`jsonError(ctx,status,code,message)`统一编码JSON。未知API404，匹配路径但方法错误405。`register(path, HttpRequestHandler)`保留给基础WS升级等平台路由。
 - `registerAuthRoutes(router,auth,defaults)`及`registerCatalogRoutes(router,catalog)`由对方模块导出，由我在入口挂载。各服务构造时注入同一个Repository；目录模块实现`CatalogReader`，账号模块实现`IdentityResolver`。

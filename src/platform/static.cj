@@ -1,10 +1,10 @@
-package huaiwei.platform
+package juxiaobao.platform
 
 import std.fs.*
 import std.io.*
 import stdx.net.http.*
 
-public func serveFrontend(root: String): HttpRequestHandler {
+public func serveFrontend(root: String, uploadsRoot!: String = ""): HttpRequestHandler {
     FuncHandler(
         {
             ctx =>
@@ -25,6 +25,23 @@ public func serveFrontend(root: String): HttpRequestHandler {
                         contentType = "image/svg+xml"
                     } else {
                         jsonError(ctx, 404, "NOT_FOUND", "资源不存在");
+                        return
+                    }
+                } else if (path.startsWith("/uploads/menu/")) {
+                    let filename = path[14..]
+                    if (uploadsRoot.isEmpty() || filename.isEmpty() || filename.contains("/")) {
+                        jsonError(ctx, 404, "NOT_FOUND", "图片不存在");
+                        return
+                    }
+                    file = uploadsRoot + "/" + filename
+                    contentType = if (filename.endsWith(".jpg")) {
+                        "image/jpeg"
+                    } else if (filename.endsWith(".png")) {
+                        "image/png"
+                    } else if (filename.endsWith(".webp")) {
+                        "image/webp"
+                    } else {
+                        jsonError(ctx, 404, "NOT_FOUND", "图片类型不支持");
                         return
                     }
                 } else if (path.startsWith("/menu-images/")) {

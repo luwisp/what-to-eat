@@ -3,8 +3,8 @@ import std.database.sql.*
 import sqlite4cj.*
 
 main(): Int64 {
-    let path = getVariable("HUAIWEI_SQLITE_PROBE_PATH") ?? throw Exception("Probe path required")
-    let write = getVariable("HUAIWEI_SQLITE_PROBE_WRITE") == Some("true")
+    let path = getVariable("JUXIAOBAO_SQLITE_PROBE_PATH") ?? throw Exception("Probe path required")
+    let write = getVariable("JUXIAOBAO_SQLITE_PROBE_WRITE") == Some("true")
     try (ds = SqliteDatasource(path)) {
         try (cn = SqliteConnection(ds)) {
             if (write) {

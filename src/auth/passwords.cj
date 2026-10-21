@@ -1,7 +1,7 @@
-package huaiwei.auth
+package juxiaobao.auth
 
-import huaiwei.model.*
-import huaiwei.platform.*
+import juxiaobao.model.*
+import juxiaobao.platform.*
 import stdx.crypto.crypto.*
 import stdx.crypto.digest.*
 

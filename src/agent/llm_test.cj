@@ -1,6 +1,6 @@
-package huaiwei.agent
+package juxiaobao.agent
 
-import huaiwei.platform.*
+import juxiaobao.platform.*
 import stdx.net.http.*
 import std.sync.*
 import std.time.*

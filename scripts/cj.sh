@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -e
 project_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-sdk_dir=${HUAIWEI_CANGJIE_SDK:-${CANGJIE_HOME:-$HOME/.local/opt/cangjie-1.2.0/cangjie}}
+sdk_dir=${JUXIAOBAO_CANGJIE_SDK:-${CANGJIE_HOME:-$HOME/.local/opt/cangjie-1.2.0/cangjie}}
 if [ ! -f "$sdk_dir/envsetup.sh" ]; then
-  printf '%s\n' 'Set HUAIWEI_CANGJIE_SDK to your Cangjie SDK directory.' >&2
+  printf '%s\n' 'Set JUXIAOBAO_CANGJIE_SDK to your Cangjie SDK directory.' >&2
   exit 2
 fi
 source "$sdk_dir/envsetup.sh"

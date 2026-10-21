@@ -101,7 +101,7 @@ function renderMenu(){
  }
  $('menu-body').innerHTML=rows.join('');$('menu-meta').textContent=`共 ${menu.dishes.length} 道 · 显示 ${count} 道 · 模拟 unknown ${unknown.size} / 下架 ${unavailable.size}`;
 }
-function loadDefaults(m){try{const d=JSON.parse(localStorage.getItem('huaiwei-meal-defaults-v3')||'null');if(d&&units[d.appetite])for(const key of defaultFields)if(typeof d[key]==='string')m[key]=d[key];}catch{status('本地默认值不可用，本次使用空白要求。',true);}}
+function loadDefaults(m){try{const d=JSON.parse(localStorage.getItem('juxiaobao-meal-defaults-v3')||'null');if(d&&units[d.appetite])for(const key of defaultFields)if(typeof d[key]==='string')m[key]=d[key];}catch{status('本地默认值不可用，本次使用空白要求。',true);}}
 function preset(kind){
  const count=kind==='five'?5:4;
  members=Array.from({length:count},(_,index)=>member(memberName(index)));
@@ -161,12 +161,12 @@ for(const id of ['budget','expansions','width','algorithm'])$(id).addEventListen
 for(const id of ['filter','member-filter','fit-filter'])$(id).addEventListener(id==='filter'?'input':'change',renderMenu);
 $('menu-body').addEventListener('change',e=>{const {sim,id}=e.target.dataset;if(!sim)return;const set=sim==='unknown'?unknown:unavailable;e.target.checked?set.add(id):set.delete(id);invalidate();});
 $('reset-sim').onclick=()=>{unknown.clear();unavailable.clear();invalidate();};$('run').onclick=run;
-$('save-defaults').onclick=()=>{try{const d=Object.fromEntries(defaultFields.map(k=>[k,members[0][k]]));localStorage.setItem('huaiwei-meal-defaults-v3',JSON.stringify(d));status('第1位成员的常用要求已保存到此浏览器，未保存本局愿望、主食覆盖或文字，未调用账号 API。');}catch{status('浏览器不允许保存本地默认值。',true);}};
-$('export').onclick=()=>{if(dirty||!result)return;const blob=new Blob([JSON.stringify({format:'huaiwei-algorithm-experiment-v3',input:lastInput,result},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='laoxiangji-v3-experiment.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('save-defaults').onclick=()=>{try{const d=Object.fromEntries(defaultFields.map(k=>[k,members[0][k]]));localStorage.setItem('juxiaobao-meal-defaults-v3',JSON.stringify(d));status('第1位成员的常用要求已保存到此浏览器，未保存本局愿望、主食覆盖或文字，未调用账号 API。');}catch{status('浏览器不允许保存本地默认值。',true);}};
+$('export').onclick=()=>{if(dirty||!result)return;const blob=new Blob([JSON.stringify({format:'juxiaobao-algorithm-experiment-v3',input:lastInput,result},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='laoxiangji-v3-experiment.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 $('import').onclick=()=>$('file').click();
 $('file').onchange=async()=>{
  try{const f=$('file').files[0];if(!f)return;if(f.size>4*1024*1024)throw Error('文件不能超过 4 MB。');const data=JSON.parse(await f.text()),i=data.input;
-  if(!['huaiwei-algorithm-experiment-v1','huaiwei-algorithm-experiment-v3'].includes(data.format)||!Array.isArray(i?.members)||i.members.length<1||i.members.length>12)throw Error('文件格式无效。');
+  if(!['juxiaobao-algorithm-experiment-v1','juxiaobao-algorithm-experiment-v3'].includes(data.format)||!Array.isArray(i?.members)||i.members.length<1||i.members.length>12)throw Error('文件格式无效。');
   if(i.members.some(m=>typeof m.id!=='string'||!m.id||m.id.length>128)||new Set(i.members.map(m=>m.id)).size!==i.members.length)throw Error('成员 ID 无效。');
   members=i.members.map(row=>{const p=row.preferences;if(!p||!['allergens','avoidFoods','tastePreferences','wantedDishIds'].every(k=>Array.isArray(p[k])))throw Error('成员字段无效。');const m=member(String(row.nickname||'成员'),false),o=row.meal||{};return {...m,id:row.id,submitted:!!row.submitted,allergens:p.allergens.join('、'),avoidFoods:p.avoidFoods.join('、'),maxSpiceLevel:p.maxSpiceLevel===null?'':String(p.maxSpiceLevel),tastePreferences:p.tastePreferences.join('、'),wishes:p.wantedDishIds.filter(id=>menu.dishes.some(d=>d.id===id)),note:String(p.note||''),appetite:units[o.appetite]?o.appetite:'normal',stapleMode:['default','none','noodles','specified'].includes(o.stapleMode)?o.stapleMode:'default',stapleDishId:menu.dishes.some(d=>d.id===o.stapleDishId&&meta(d.id).role==='staple'&&meta(d.id).stapleUnits===1)?o.stapleDishId:'',wantedIngredients:(o.wantedIngredients||[]).filter(x=>menu.ingredientOptions.includes(x)),wantedExtras:importExtras(o),wantedSpiceLevel:o.wantedSpiceLevel==null?'':String(o.wantedSpiceLevel)};});
   seq=Math.max(seq,...members.map(m=>/^m\d+$/.test(m.id)?Number(m.id.slice(1)):0));$('people').value=i.people;$('budget').value=i.budgetPerPersonFen==null?'':(i.budgetPerPersonFen/100).toFixed(2);$('algorithm').value=i.algorithm==='v1'?'v1':'v3';

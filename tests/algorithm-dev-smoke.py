@@ -28,9 +28,9 @@ class AlgorithmDevHTTPTests(unittest.TestCase):
             reserve.bind(('127.0.0.1', 0))
             cls.port = reserve.getsockname()[1]
         cls.origin = f'http://127.0.0.1:{cls.port}'
-        env = {**os.environ, 'HUAIWEI_DEV_PORT': str(cls.port), 'cjHeapSize': '64MB',
-               'HUAIWEI_DEV_HOST': '0.0.0.0', 'HUAIWEI_DEV_ORIGIN': 'http://20.48.96.44:8091'}
-        cls.db = Path(env.get('HUAIWEI_DEV_DB', str(ROOT / 'data/runtime/huaiwei.sqlite')))
+        env = {**os.environ, 'JUXIAOBAO_DEV_PORT': str(cls.port), 'cjHeapSize': '64MB',
+               'JUXIAOBAO_DEV_HOST': '0.0.0.0', 'JUXIAOBAO_DEV_ORIGIN': 'http://20.48.96.44:8091'}
+        cls.db = Path(env.get('JUXIAOBAO_DEV_DB', str(ROOT / 'data/runtime/juxiaobao.sqlite')))
         cls.before = hashlib.sha256(cls.db.read_bytes()).hexdigest()
         cls.process = subprocess.Popen(['bash', 'scripts/cj.sh', 'exec', 'target/algorithm-dev/server'],
                                        cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

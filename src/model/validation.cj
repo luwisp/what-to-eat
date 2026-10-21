@@ -1,4 +1,4 @@
-package huaiwei.model
+package juxiaobao.model
 
 import std.collection.*
 
@@ -6,7 +6,7 @@ public func validateDishInput(input: DishInput): Outcome<Unit> {
     if (input.name.trimAscii().isEmpty() || input.priceFen < 0) {
         return Outcome.Err(DomainError("INVALID_DISH", "请填写菜名和非负价格"))
     }
-    let categories = ["cold", "hot", "soup", "staple", "drink"]
+    let categories = ["cold", "hot", "soup", "staple", "side", "drink"]
     if (!categories.contains(input.category)) {
         return Outcome.Err(DomainError("INVALID_CATEGORY", "菜品分类无效"))
     }

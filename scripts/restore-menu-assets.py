@@ -3,7 +3,7 @@
 import argparse,re,sqlite3
 from pathlib import Path
 cli=argparse.ArgumentParser()
-cli.add_argument('--db',type=Path,default=Path('data/runtime/huaiwei.sqlite'))
+cli.add_argument('--db',type=Path,default=Path('data/runtime/juxiaobao.sqlite'))
 cli.add_argument('--output',type=Path,default=Path('web/menu-images'))
 args=cli.parse_args()
 with sqlite3.connect(args.db.resolve().as_uri()+'?mode=ro',uri=True) as db:

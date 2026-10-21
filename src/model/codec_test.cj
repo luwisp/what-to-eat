@@ -1,4 +1,4 @@
-package huaiwei.model
+package juxiaobao.model
 
 import stdx.encoding.json.*
 import std.unittest.*

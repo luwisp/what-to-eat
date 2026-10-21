@@ -328,7 +328,7 @@ def import_menu(args):
 def parser():
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument('--source', type=Path, default=PROJECT_ROOT / 'data/fixtures/老乡鸡菜谱.xlsx')
-    cli.add_argument('--db', type=Path, default=PROJECT_ROOT / 'data/runtime/huaiwei.sqlite')
+    cli.add_argument('--db', type=Path, default=PROJECT_ROOT / 'data/runtime/juxiaobao.sqlite')
     cli.add_argument('--sheet', help='默认读取第一个工作表')
     cli.add_argument('--source-key', default='laoxiangji-menu', help='稳定的导入来源标识')
     cli.add_argument('--restaurant-code', default='LAOXIANGJI')

@@ -1,8 +1,12 @@
-package huaiwei.auth
+package juxiaobao.auth
 
-import huaiwei.model.*
-import huaiwei.platform.*
-import huaiwei.store.*
+import juxiaobao.model.*
+import juxiaobao.platform.*
+import juxiaobao.store.*
+
+class ProfileCell {
+    public var value: ?AccountView = None
+}
 
 public class AuthService <: IdentityResolver {
     public let repository: Repository
@@ -162,6 +166,41 @@ public class AuthService <: IdentityResolver {
         }
         Outcome.Err(DomainError("UNAUTHENTICATED", "请先登录", status: 401))
     }
+    public func updateProfile(cookies: String, nickname: String): Outcome<AccountView> {
+        let value = nickname.trimAscii()
+        if (value.toRuneArray().size > 40 || value.toArray().any({b => b < 32 || b == 127})) {
+            return Outcome.Err(DomainError("INVALID_INPUT", "用户名最多40字，不能包含换行或控制字符"))
+        }
+        let saved = ProfileCell()
+        let result = repository.transact(
+            {
+                db =>
+                    let actor = resolveSnapshot(db, cookies, clock.wallMillis())
+                    if (actor.userId.isNone()) {
+                        return Outcome<DatabaseSnapshot>.Err(DomainError("UNAUTHENTICATED", "请先登录", status: 401))
+                    }
+                    for (user in db.users) {
+                        if (Some(user.id) == actor.userId) {
+                            user.nickname = if (value.isEmpty()) {
+                                None
+                            } else {
+                                Some(value)
+                            }
+                            saved.value = Some(
+                                AccountView(id: user.id, kind: "user", login: user.login, nickname: user.nickname))
+                        }
+                    }
+                    Outcome.Ok(db)
+            }
+        )
+        match (result) {
+            case Err(e) => Outcome.Err(e);
+            case Ok(_) => match (saved.value) {
+                case Some(view) => Outcome.Ok(view);
+                case None => Outcome.Err(DomainError("UNAUTHENTICATED", "请先登录", status: 401))
+            }
+        }
+    }
     public func clearCookie(kind: AccountKind): String {
         cookie(cookieName(kind), "", 0)
     }
@@ -184,13 +223,23 @@ public class AuthService <: IdentityResolver {
 }
 
 func credentialProblem(login: String, password: String): String {
-    if (login.isEmpty()) { return "请输入账号" }
-    if (login.size > 128) { return "账号过长，最多128字节" }
-    for (b in login.toArray()) {
-        if (b <= 32 || b == 127) { return "账号不能包含空格、换行或控制字符" }
+    if (login.isEmpty()) {
+        return "请输入账号"
     }
-    if (password.size < 8) { return "密码太短，至少需要8字节（英文或数字至少8位）" }
-    if (password.size > 1024) { return "密码过长，最多1024字节" }
+    if (login.size > 128) {
+        return "账号过长，最多128字节"
+    }
+    for (b in login.toArray()) {
+        if (b <= 32 || b == 127) {
+            return "账号不能包含空格、换行或控制字符"
+        }
+    }
+    if (password.size < 8) {
+        return "密码太短，至少需要8字节（英文或数字至少8位）"
+    }
+    if (password.size > 1024) {
+        return "密码过长，最多1024字节"
+    }
     ""
 }
 

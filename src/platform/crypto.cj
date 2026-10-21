@@ -1,4 +1,4 @@
-package huaiwei.platform
+package juxiaobao.platform
 
 foreign func EVP_sha256(): CPointer<Unit>
 foreign func PKCS5_PBKDF2_HMAC(password: CPointer<UInt8>, passwordLength: Int32,

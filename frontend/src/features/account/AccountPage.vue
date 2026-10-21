@@ -11,6 +11,8 @@ const route = useRoute(),
   account = ref<AccountView | null>(null),
   login = ref(""),
   password = ref(""),
+  nickname = ref(""),
+  savingProfile = ref(false),
   registering = ref(false),
   error = ref(""),
   notice = ref(""),
@@ -18,6 +20,7 @@ const route = useRoute(),
 async function refresh() {
   account.value = await loadAccount();
   if (account.value) {
+    nickname.value = account.value.nickname ?? "";
     try {
       prefs.value = applyDefaults(
         await api<UserDefaultSettings>("/api/user/default-settings"),
@@ -71,6 +74,22 @@ async function save() {
     error.value = (e as Error).message;
   }
 }
+async function saveProfile() {
+  error.value = "";
+  notice.value = "";
+  savingProfile.value = true;
+  try {
+    account.value = await api<AccountView>("/api/user/profile", "PATCH", {
+      nickname: nickname.value,
+    });
+    nickname.value = account.value.nickname ?? "";
+    notice.value = "用户名已保存";
+  } catch (e) {
+    error.value = (e as Error).message;
+  } finally {
+    savingProfile.value = false;
+  }
+}
 async function logout() {
   error.value = "";
   notice.value = "";
@@ -114,18 +133,44 @@ async function logout() {
       ><button type="button" @click="registering = !registering">
         {{ registering ? "已有账号，去登录" : "还没有账号，去注册" }}
       </button>
+      <a class="merchant-login-link" href="/admin/"
+        >我是商家，进入餐馆工作台 →</a
+      >
     </form>
-    <div v-else class="card">
-      <div class="row between">
-        <h2>{{ account.nickname || account.login }}</h2>
+    <template v-else>
+      <section class="card profile-card">
+        <div class="profile-summary">
+          <span class="profile-avatar">{{
+            (account.nickname || account.login).slice(0, 1)
+          }}</span>
+          <div>
+            <h2>{{ account.nickname || account.login }}</h2>
+            <p>登录账号：{{ account.login }}</p>
+          </div>
+        </div>
+        <form class="profile-editor" @submit.prevent="saveProfile">
+          <label
+            >用户名<input
+              v-model="nickname"
+              maxlength="40"
+              placeholder="设置大家看到的名字" /></label
+          ><button :disabled="savingProfile">
+            {{ savingProfile ? "正在保存…" : "保存用户名" }}
+          </button>
+        </form>
+      </section>
+      <section class="card defaults-card">
+        <h2>我的饮食偏好</h2>
+        <PreferencesForm v-model="prefs" defaults-only /><button
+          class="primary save-defaults"
+          @click="save"
+        >
+          保存为我的默认设置
+        </button>
+      </section>
+      <div class="account-signout">
         <button @click="logout">退出账号</button>
       </div>
-      <PreferencesForm v-model="prefs" defaults-only /><button
-        class="primary"
-        @click="save"
-      >
-        保存为我的默认设置
-      </button>
-    </div>
+    </template>
   </section>
 </template>

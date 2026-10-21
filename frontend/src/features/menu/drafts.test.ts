@@ -37,6 +37,20 @@ it("defaults cannot import today wishes or replace an existing draft", () => {
   expect(result.note).toBe("");
 });
 it("corrupt local data falls back without inventing submitted requirements", () => {
-  storage.setItem("huaiwei:draft:restaurant:BAD", "{broken");
+  storage.setItem("juxiaobao:draft:restaurant:BAD", "{broken");
   expect(loadDraft("restaurant:BAD", storage)).toEqual(emptyPreferences());
+});
+it("migrates a legacy browser draft without overwriting a renamed draft", () => {
+  storage.setItem(
+    "huaiwei:draft:restaurant:OLD",
+    JSON.stringify({ ...emptyPreferences(), note: "保留旧草稿" }),
+  );
+  expect(loadDraft("restaurant:OLD", storage).note).toBe("保留旧草稿");
+  expect(storage.getItem("juxiaobao:draft:restaurant:OLD")).not.toBeNull();
+  saveDraft(
+    "restaurant:OLD",
+    { ...emptyPreferences(), note: "新的草稿" },
+    storage,
+  );
+  expect(loadDraft("restaurant:OLD", storage).note).toBe("新的草稿");
 });

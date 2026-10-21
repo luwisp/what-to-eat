@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import QRCode from "qrcode";
 import type {
@@ -19,6 +19,13 @@ import {
 } from "../menu/drafts";
 import ModalSheet from "../../shared/ModalSheet.vue";
 import AppIcon from "../../shared/AppIcon.vue";
+import QuantityControl from "../../shared/QuantityControl.vue";
+import {
+  readPlan,
+  writePlan,
+  clearPlan,
+  changePlanItem,
+} from "../menu/planDraft";
 import PreferencesForm from "../../shared/PreferencesForm.vue";
 const aiEnabled = ref(false);
 const route = useRoute(),
@@ -38,7 +45,9 @@ const route = useRoute(),
   companionId = ref(""),
   companionName = ref(""),
   companionPrefs = ref(emptyPreferences()),
-  chatText = ref("");
+  chatText = ref(""),
+  chatOpen = ref(false),
+  chatScroll = ref<HTMLElement>();
 let connection: RoomConnection | undefined,
   key: DraftKey | undefined,
   initialized = "";
@@ -63,31 +72,35 @@ const submitted = computed(
 const result = computed(() => state.value?.recommendation);
 const editingVersion = ref(0);
 const editingResult = ref(false),
-  editedItems = ref<RecommendationItem[]>([]),
-  addItem = ref("");
+  editedItems = ref<RecommendationItem[]>([]);
+const displayItems = computed(() =>
+  editingResult.value ? editedItems.value : (result.value?.draft.items ?? []),
+);
+const displayTotal = computed(() =>
+  displayItems.value.reduce((n, i) => n + i.unitPriceFen * i.quantity, 0),
+);
+const planMenuLink = computed(() => menuLink.value + "&edit=1");
+function persistPlan() {
+  if (state.value?.self && editingResult.value)
+    writePlan(String(route.params.code), state.value.self.id, {
+      version: editingVersion.value,
+      items: editedItems.value,
+    });
+}
+function cancelResultEdit() {
+  editingResult.value = false;
+  if (state.value?.self)
+    clearPlan(String(route.params.code), state.value.self.id);
+}
+function changeItem(item: RecommendationItem, quantity: number) {
+  editedItems.value = changePlanItem(editedItems.value, item, quantity);
+  persistPlan();
+}
 function startResultEdit() {
   editingVersion.value = state.value?.stateVersion ?? 0;
   editedItems.value = copyJson(result.value?.draft.items ?? []);
   editingResult.value = true;
-}
-function appendItem() {
-  const d = menu.value?.dishes.find((d) => d.id === addItem.value);
-  const m = menu.value?.setMeals.find((m) => m.id === addItem.value);
-  if (!d && !m) return;
-  const kind = d ? "dish" : "setMeal";
-  const existing = editedItems.value.find(
-    (i) => i.itemType === kind && i.itemId === addItem.value,
-  );
-  if (existing) existing.quantity++;
-  else
-    editedItems.value.push({
-      itemType: kind,
-      itemId: addItem.value,
-      quantity: 1,
-      name: (d ?? m)!.name,
-      unitPriceFen: (d ?? m)!.priceFen,
-    });
-  addItem.value = "";
+  persistPlan();
 }
 function itemDescription(item: RecommendationItem): string {
   if (item.itemType !== "dish") return "";
@@ -105,7 +118,7 @@ async function saveResultEdit() {
       quantity: Number(i.quantity),
     })),
   });
-  if (!error.value) editingResult.value = false;
+  if (!error.value) cancelResultEdit();
 }
 const inviteLink = computed(
   () => location.origin + "/s/" + String(route.params.code),
@@ -121,7 +134,12 @@ onMounted(() => {
       state.value = s;
       if (wasWorking && !s.job) {
         pendingRecommendation.value = false;
-        if (s.recommendation && !s.recommendationInvalid && !editing.value)
+        if (
+          s.recommendation &&
+          !s.recommendationInvalid &&
+          !editing.value &&
+          !resultView.value
+        )
           void router.push(`/s/${route.params.code}/result`);
         else if (!s.recommendation || s.recommendationInvalid)
           error.value = "这次没能完成搭配，请再试一次。";
@@ -135,6 +153,17 @@ onMounted(() => {
         initialized = s.self.id;
         key = `room:${s.session.roomCode}:${s.self.id}`;
         prefs.value = hasDraft(key) ? loadDraft(key) : copyJson(s.self.draft);
+        if (resultView.value) {
+          const draft = readPlan(String(route.params.code), s.self.id);
+          if (draft && draft.version === s.stateVersion) {
+            editingVersion.value = draft.version;
+            editedItems.value = draft.items;
+            editingResult.value = true;
+          } else if (draft) {
+            notice.value = "这桌的要求已经更新，请重新编辑最新方案。";
+            clearPlan(String(route.params.code), s.self.id);
+          }
+        }
         if (!hasDraft(key) && hasDraft(`restaurant:${s.restaurantCode}`)) {
           const restaurant = loadDraft(`restaurant:${s.restaurantCode}`);
           prefs.value.wantedDishIds = restaurant.wantedDishIds;
@@ -171,6 +200,15 @@ onMounted(() => {
   );
 });
 onUnmounted(() => connection?.close());
+watch(
+  () => [chatOpen.value, state.value?.messages.length, working.value],
+  async () => {
+    if (!chatOpen.value) return;
+    await nextTick();
+    if (chatScroll.value)
+      chatScroll.value.scrollTop = chatScroll.value.scrollHeight;
+  },
+);
 watch(
   () => state.value?.menuVersion,
   () => {
@@ -259,7 +297,7 @@ async function copyInvite() {
   }
 }
 async function requestRecommendation(adjustment?: string) {
-  if (working.value) return;
+  if (working.value || editingResult.value) return;
   pendingRecommendation.value = true;
   await send("request_recommendation", adjustment ? { adjustment } : {});
   if (error.value) pendingRecommendation.value = false;
@@ -269,7 +307,8 @@ async function reopen() {
   if (!error.value) void router.push(`/s/${route.params.code}`);
 }
 async function sendChat() {
-  if (working.value || !chatText.value.trim()) return;
+  if (working.value || editingResult.value || !chatText.value.trim()) return;
+  chatOpen.value = true;
   pendingRecommendation.value = true;
   await send("chat_message", { text: chatText.value.trim() });
   if (error.value) pendingRecommendation.value = false;
@@ -283,17 +322,23 @@ function itemImage(item: RecommendationItem): string {
     )?.imageUrl ?? ""
   );
 }
-const mine = computed(
-  () =>
-    result.value?.draft.expandedDishes.filter((d) =>
-      result.value?.draft.fits.some(
-        (f) =>
-          f.dishId === d.dish.id &&
-          f.memberId === state.value?.self?.id &&
-          f.status === "fit",
-      ),
-    ) ?? [],
-);
+function stapleFor(id: string | null) {
+  return menu.value?.dishes.find((d) => d.id === id);
+}
+function suitableFor(memberId: string) {
+  return (
+    result.value?.draft.expandedDishes.filter(
+      (d) =>
+        d.dish.category !== "staple" &&
+        result.value?.draft.fits.some(
+          (f) =>
+            f.dishId === d.dish.id &&
+            f.memberId === memberId &&
+            f.status === "fit",
+        ),
+    ) ?? []
+  );
+}
 </script>
 <template>
   <section class="room-page room-flow">
@@ -311,7 +356,7 @@ const mine = computed(
               ? "我的用餐要求"
               : resultView
                 ? "这桌这样点"
-                : (menu?.restaurant.name ?? "一起吃")
+                : (menu?.restaurant.name ?? "聚小宝")
           }}
         </h1>
         <p class="room-caption">
@@ -322,7 +367,7 @@ const mine = computed(
       <div v-if="!editing" class="room-tools">
         <RouterLink
           v-if="menuLink"
-          :to="menuLink"
+          :to="resultView && editingResult ? planMenuLink : menuLink"
           class="button"
           aria-label="看菜单"
           >看菜单</RouterLink
@@ -348,7 +393,12 @@ const mine = computed(
       {{ error }} <RouterLink v-if="!state" to="/">回首页重新输入</RouterLink>
     </p>
     <p v-if="notice" role="status" class="notice">{{ notice }}</p>
-    <div v-if="working" class="working-panel" role="status" aria-live="polite">
+    <div
+      v-if="working && !resultView"
+      class="working-panel"
+      role="status"
+      aria-live="polite"
+    >
       <span class="working-orbit"><AppIcon name="dish" :size="30" /></span>
       <div>
         <strong>{{
@@ -474,7 +524,7 @@ const mine = computed(
             state.recommendationInvalid ? "上次方案需要更新" : "看看已搭配的菜"
           }}</strong
           ><small
-            >{{ result.draft.items.length }} 项 ·
+            >{{ displayItems.length }} 项 ·
             {{ money(result.draft.totalFen) }}</small
           ></span
         ><AppIcon name="arrow" :size="18"
@@ -506,13 +556,11 @@ const mine = computed(
       <div class="result-total">
         <div>
           <span
-            >{{ result.draft.items.length }} 项 · 人均约
+            >{{ displayItems.length }} 项 · 人均约
             {{
-              money(
-                Math.ceil(result.draft.totalFen / (state?.session.people || 1)),
-              )
+              money(Math.ceil(displayTotal / (state?.session.people || 1)))
             }}</span
-          ><strong>{{ money(result.draft.totalFen) }}</strong>
+          ><strong>{{ money(displayTotal) }}</strong>
         </div>
         <span
           :class="[
@@ -520,15 +568,17 @@ const mine = computed(
             { partial: result.draft.mealStatus === 'partial' },
           ]"
           >{{
-            result.draft.mealStatus === "partial"
-              ? "还有需要补齐的地方"
-              : "饭菜已配齐"
+            editingResult
+              ? "待保存校验"
+              : result.draft.mealStatus === "partial"
+                ? "还有需要补齐的地方"
+                : "饭菜已配齐"
           }}</span
         >
       </div>
       <ul class="result-dishes">
         <li
-          v-for="item in result.draft.items"
+          v-for="item in displayItems"
           :key="`${item.itemType}:${item.itemId}`"
           class="result-dish"
         >
@@ -542,19 +592,38 @@ const mine = computed(
             <AppIcon name="dish" :size="34" />
           </div>
           <div class="result-dish-copy">
-            <h2>{{ item.name }}</h2>
+            <div class="result-card-heading">
+              <h2>{{ item.name }}</h2>
+              <button
+                v-if="editingResult"
+                type="button"
+                class="remove-dish"
+                :aria-label="'移除 ' + item.name"
+                @click="changeItem(item, 0)"
+              >
+                <AppIcon name="trash" :size="16" />
+              </button>
+            </div>
             <span v-if="itemDescription(item)" class="dish-description">{{
               itemDescription(item)
             }}</span
             ><span v-if="item.itemType === 'setMeal'" class="hint">套餐</span>
             <div class="result-dish-bottom">
               <strong>{{ money(item.unitPriceFen * item.quantity) }}</strong
-              ><span>× {{ item.quantity }}</span>
+              ><QuantityControl
+                v-if="editingResult"
+                :name="item.name"
+                :quantity="item.quantity"
+                @change="(n) => changeItem(item, n)"
+              /><span v-else>× {{ item.quantity }}</span>
             </div>
           </div>
         </li>
       </ul>
-      <div class="result-edit-toolbar">
+      <p v-if="editingResult && !displayItems.length" class="card empty-plan">
+        这份方案已清空，可以从菜单重新加菜。
+      </p>
+      <div v-if="!editingResult" class="result-edit-toolbar">
         <button
           v-if="state?.session.state !== 'closed'"
           :disabled="working || state?.recommendationInvalid"
@@ -572,69 +641,83 @@ const mine = computed(
           再加一道汤
         </button>
       </div>
-      <div v-if="editingResult" class="result-editor">
-        <h3>保留、删菜或调整份数</h3>
-        <div
-          v-for="(i, index) in editedItems"
-          :key="`${i.itemType}:${i.itemId}`"
-          class="row"
+      <div v-if="editingResult" class="plan-edit-actions">
+        <RouterLink :to="planMenuLink" class="button">＋ 从菜单加菜</RouterLink
+        ><button @click="cancelResultEdit">取消修改</button
+        ><button
+          class="primary"
+          :disabled="busy || working"
+          @click="saveResultEdit"
         >
-          <span>{{ i.name }}</span
-          ><label
-            >份数<input
-              v-model.number="i.quantity"
-              type="number"
-              min="1"
-              max="100" /></label
-          ><button @click="editedItems.splice(index, 1)">
-            移除 {{ i.name }}
-          </button>
-        </div>
-        <div class="row">
-          <select v-model="addItem" aria-label="添加菜品或套餐">
-            <option value="">选择要添加或替换的菜品</option>
-            <option
-              v-for="d in menu?.dishes.filter((d) => d.available)"
-              :key="d.id"
-              :value="d.id"
-            >
-              {{ d.name }} · {{ money(d.priceFen) }}
-            </option>
-            <option v-for="m in menu?.setMeals" :key="m.id" :value="m.id">
-              套餐：{{ m.name }}
-            </option></select
-          ><button :disabled="!addItem" @click="appendItem">加入方案</button>
-        </div>
-        <p class="hint">
-          保存时重新计算价格、个人适配和饭菜缺口；不会自动补回你移除的条目。
-        </p>
-        <div class="row">
-          <button @click="editingResult = false">取消修改</button
-          ><button class="primary" :disabled="busy" @click="saveResultEdit">
-            保存并重新校验
-          </button>
-        </div>
+          保存并重新校验
+        </button>
       </div>
-
-      <details class="result-details">
+      <details v-if="!editingResult" class="result-details">
         <summary>看看每个人怎么吃</summary>
-        <p v-for="m in result.draft.mealMembers" :key="m.memberId">
-          <strong>{{
-            state?.members.find((p) => p.id === m.memberId)?.nickname
-          }}</strong>
-          · 热菜 {{ m.halfDishAllocated / 2 }} / {{ m.halfDishNeed / 2 }} 份 ·
-          {{
-            m.stapleOptOut
-              ? "不要主食"
-              : (menu?.dishes.find((d) => d.id === m.stapleDishId)?.name ??
-                "主食待补充")
-          }}
-        </p>
-        <p>
-          适合我的菜：{{
-            mine.map((d) => d.dish.name).join("、") || "目前没有确定适配的菜"
-          }}
-        </p>
+        <div class="member-meals">
+          <article
+            v-for="m in result.draft.mealMembers"
+            :key="m.memberId"
+            class="member-meal-card"
+          >
+            <header>
+              <span class="member-avatar"
+                ><AppIcon name="user" :size="18" /></span
+              ><strong>{{
+                m.memberId === state?.self?.id
+                  ? "我"
+                  : state?.members.find((p) => p.id === m.memberId)?.nickname
+              }}</strong
+              ><span
+                :class="[
+                  'meal-coverage',
+                  {
+                    missing:
+                      m.halfDishAllocated < m.halfDishNeed ||
+                      (!m.stapleOptOut && !m.stapleDishId),
+                  },
+                ]"
+                >{{
+                  m.halfDishAllocated >= m.halfDishNeed &&
+                  (m.stapleOptOut || m.stapleDishId)
+                    ? "份量已配齐"
+                    : "还需补充"
+                }}</span
+              >
+            </header>
+            <div class="meal-supply">
+              <span
+                >热菜 {{ m.halfDishAllocated / 2 }} /
+                {{ m.halfDishNeed / 2 }} 份</span
+              ><meter
+                min="0"
+                :max="Math.max(1, m.halfDishNeed)"
+                :value="Math.min(m.halfDishAllocated, m.halfDishNeed)"
+              />
+            </div>
+            <div class="member-staple">
+              <img
+                v-if="stapleFor(m.stapleDishId)?.imageUrl"
+                :src="stapleFor(m.stapleDishId)?.imageUrl"
+                alt=""
+              /><AppIcon v-else name="dish" :size="20" /><span>{{
+                m.stapleOptOut
+                  ? "不要主食"
+                  : (stapleFor(m.stapleDishId)?.name ?? "主食待补充")
+              }}</span>
+            </div>
+            <div class="member-fit-dishes">
+              <span v-for="d in suitableFor(m.memberId)" :key="d.dish.id"
+                ><img v-if="d.dish.imageUrl" :src="d.dish.imageUrl" alt="" />{{
+                  d.dish.name
+                }}</span
+              >
+              <p v-if="!suitableFor(m.memberId).length">
+                暂无确定适配的菜，需要继续搭配
+              </p>
+            </div>
+          </article>
+        </div>
         <p class="hint">
           热菜 {{ result.draft.estimatedHotSupply }} /
           {{ result.draft.estimatedHotNeed }} 份
@@ -673,7 +756,10 @@ const mine = computed(
         </p>
       </details>
       <details
-        v-if="result.draft.items.some((i) => i.itemType === 'setMeal')"
+        v-if="
+          !editingResult &&
+          result.draft.items.some((i) => i.itemType === 'setMeal')
+        "
         class="result-details"
       >
         <summary>套餐里有哪些菜</summary>
@@ -684,53 +770,10 @@ const mine = computed(
           >
         </p>
       </details>
-      <section class="dining-assistant card">
-        <div class="assistant-title">
-          <span class="assistant-avatar"
-            ><AppIcon name="dish" :size="22"
-          /></span>
-          <div>
-            <strong>点菜员</strong
-            ><small>{{
-              aiEnabled ? "一起商量，点得更合口味" : "基础搭配 · 可手动调整"
-            }}</small>
-          </div>
-        </div>
-        <div class="chat-history">
-          <p
-            v-for="m in state?.messages"
-            :key="m.id"
-            :class="m.role === 'agent' ? 'assistant-message' : 'guest-message'"
-          >
-            <span>{{ m.content }}</span>
-          </p>
-        </div>
-        <div v-if="working" class="assistant-message" role="status">
-          正在想怎么搭配<span class="typing-dots"><i></i><i></i><i></i></span>
-        </div>
-        <form
-          v-if="aiEnabled && state?.session.state !== 'closed'"
-          class="assistant-input"
-          @submit.prevent="sendChat"
-        >
-          <input
-            v-model="chatText"
-            aria-label="和点菜员说说"
-            maxlength="200"
-            placeholder="想换哪道？或者再清淡一点…"
-            :disabled="working"
-          /><button
-            type="submit"
-            class="primary"
-            :disabled="working || !chatText.trim()"
-          >
-            发送
-          </button>
-        </form>
-      </section>
       <div class="result-actions">
         <button
           v-if="
+            !editingResult &&
             host &&
             result.canConfirm &&
             !state?.recommendationInvalid &&
@@ -756,6 +799,94 @@ const mine = computed(
       <AppIcon name="dish" :size="40" />
       <h2>还没开始搭配</h2>
       <RouterLink :to="`/s/${route.params.code}`">返回这一桌</RouterLink>
+    </div>
+    <div v-if="resultView && result" class="dining-chat">
+      <button
+        type="button"
+        class="chat-launcher"
+        :aria-expanded="chatOpen"
+        aria-controls="dining-chat"
+        @click="chatOpen = !chatOpen"
+      >
+        <AppIcon name="chat" :size="22" /><span>{{
+          working ? "点菜员正在回复…" : "找点菜员聊聊"
+        }}</span>
+      </button>
+      <aside
+        v-show="chatOpen"
+        id="dining-chat"
+        class="dining-chat-panel"
+        role="dialog"
+        aria-label="点菜员对话"
+      >
+        <div class="assistant-title">
+          <span class="assistant-avatar"
+            ><AppIcon name="dish" :size="22"
+          /></span>
+          <div>
+            <strong>点菜员</strong
+            ><small>{{
+              aiEnabled ? "一起商量，点得更合口味" : "基础搭配 · 可手动调整"
+            }}</small>
+          </div>
+          <button
+            type="button"
+            class="close-chat"
+            aria-label="收起点菜员"
+            @click="chatOpen = false"
+          >
+            ×
+          </button>
+        </div>
+        <div ref="chatScroll" class="chat-scroll">
+          <div
+            class="chat-history"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions"
+          >
+            <p
+              v-for="m in state?.messages"
+              :key="m.id"
+              :class="
+                m.role === 'agent' ? 'assistant-message' : 'guest-message'
+              "
+            >
+              <span>{{ m.content }}</span>
+            </p>
+          </div>
+          <div v-if="working" class="assistant-message" role="status">
+            正在回复你<span class="typing-dots"><i></i><i></i><i></i></span>
+          </div>
+          <p v-if="error" class="error" role="alert">{{ error }}</p>
+        </div>
+        <form
+          v-if="aiEnabled && state?.session.state !== 'closed'"
+          class="assistant-input"
+          @submit.prevent="sendChat"
+        >
+          <input
+            v-model="chatText"
+            aria-label="和点菜员说说"
+            maxlength="200"
+            :disabled="working || editingResult"
+            :placeholder="
+              editingResult
+                ? '先保存修改，再和点菜员商量'
+                : '想换哪道？或者再清淡一点…'
+            "
+          /><button
+            type="submit"
+            class="primary"
+            :disabled="working || editingResult || !chatText.trim()"
+          >
+            发送
+          </button>
+        </form>
+        <p v-if="!aiEnabled" class="chat-footnote">
+          暂未启用AI，可直接在菜品卡片上修改方案。
+        </p>
+      </aside>
     </div>
     <ModalSheet v-model="invite" title="邀请同行人"
       ><div class="invitation-content">

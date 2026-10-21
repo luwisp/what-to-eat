@@ -7,7 +7,7 @@
 ## 装配
 
 ```cangjie
-import huaiwei.auth.*
+import juxiaobao.auth.*
 let auth = AuthService(repository, publicOrigin: publicOrigin)
 let defaults = DefaultSettingsService(repository)
 // auth 实现 IdentityResolver，可直接传给 createDiningServer。
@@ -48,11 +48,11 @@ Repository 返回的错误保留其 code/status/message；持久化实现应返�
 ## 验证与边界
 
 ```sh
-export HUAIWEI_CANGJIE_SDK=/你的SDK路径/cangjie
+export JUXIAOBAO_CANGJIE_SDK=/你的SDK路径/cangjie
 bash scripts/cj.sh test --filter 'AuthTests.*,DefaultsTests.*'
 ```
 
-本机临时 SDK 路径 `/tmp/huaiwei-sdk/cangjie`，官方 1.2.0 下载包 SHA256 为 `8c5fd944cd9cc51ee63d4a240e3ecc4f540345dae1468e8b47c927ecf2ba998f`。本机内存不足 1 GB，测试命令需额外设置 `cjHeapSize=64MB` 并使用 `-j 1`；官方说明见 [runtime 环境变量](https://cj-docs.gitcode.com/zh/1.2.0/dev-guide/source_zh_cn/Appendix/runtime_env.html)。根依赖配置未变；`.deps/build-tools/bin` 中仅放了本机 clang-15 的忽略链接。
+本机临时 SDK 路径 `/tmp/juxiaobao-sdk/cangjie`，官方 1.2.0 下载包 SHA256 为 `8c5fd944cd9cc51ee63d4a240e3ecc4f540345dae1468e8b47c927ecf2ba998f`。本机内存不足 1 GB，测试命令需额外设置 `cjHeapSize=64MB` 并使用 `-j 1`；官方说明见 [runtime 环境变量](https://cj-docs.gitcode.com/zh/1.2.0/dev-guide/source_zh_cn/Appendix/runtime_env.html)。根依赖配置未变；`.deps/build-tools/bin` 中仅放了本机 clang-15 的忽略链接。
 
 AuthTests 使用带写锁、深拷贝、故障注入的测试 Repository；HTTP 用例启动真实仓颉 HTTP 服务并调用真实认证模块。公开菜单路由为只读 fixture，因为 B1/CatalogReader 尚未交付。重新构造 AuthService 验证从共享快照恢复，不等价于 SQLite 进程重启验收。真实落盘、重启、真实菜单和主程序挂载需要 B1 及总装负责人联调。
 
@@ -61,7 +61,7 @@ AuthTests 使用带写锁、深拷贝、故障注入的测试 Repository；HTTP 
 2026-10-19，在本机 Cangjie 1.2.0 / OpenSSL 3.0.2 下执行：
 
 ```sh
-HUAIWEI_CANGJIE_SDK=/tmp/huaiwei-sdk/cangjie cjHeapSize=64MB \
+JUXIAOBAO_CANGJIE_SDK=/tmp/juxiaobao-sdk/cangjie cjHeapSize=64MB \
   bash scripts/cj.sh test -j 1
 ```
 

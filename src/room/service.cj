@@ -1,9 +1,9 @@
-package huaiwei.room
+package juxiaobao.room
 
-import huaiwei.model.*
-import huaiwei.store.*
-import huaiwei.platform.*
-import huaiwei.agent.*
+import juxiaobao.model.*
+import juxiaobao.store.*
+import juxiaobao.platform.*
+import juxiaobao.agent.*
 import stdx.crypto.crypto.*
 import stdx.encoding.json.*
 
@@ -227,6 +227,9 @@ public class RoomService {
         let p = Participant(id: newId(), sessionId: s.id, visitorId: actor.visitorId, userId: actor.userId,
             nickname: "成员 ${count + 1}", joinedAt: clock.wallMillis())
         if (let Some(uid) <- actor.userId) {
+            for (user in db.users) {
+                if (user.id == uid) { p.nickname = user.nickname ?? user.login }
+            }
             for (d in db.defaultSettings) {
                 if (d.userId == uid) {
                     p.draft = Preferences(appetite: d.appetite, allergens: d.allergens.clone(), avoidFoods: d.avoidFoods.clone(),

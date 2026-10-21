@@ -1,6 +1,6 @@
-package huaiwei.store
+package juxiaobao.store
 
-import huaiwei.model.*
+import juxiaobao.model.*
 import std.sync.*
 import std.database.sql.*
 import stdx.encoding.json.*

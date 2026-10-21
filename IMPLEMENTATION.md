@@ -11,9 +11,9 @@ bash scripts/dev.sh
 # http://localhost:8080，餐馆码 LAOXIANGJI
 ```
 
-默认库为 `data/runtime/huaiwei.sqlite`，可通过 `HUAIWEI_DB_PATH` 修改。首次启动导入 Excel；再次启动不会重新覆盖商家修改。旧快照缺少的用餐角色会在启动前补齐并使旧推荐失效。前端构建后从 SQLite 恢复图片。
+默认库为 `data/runtime/juxiaobao.sqlite`，可通过 `JUXIAOBAO_DB_PATH` 修改。首次启动导入 Excel；再次启动不会重新覆盖商家修改。旧快照缺少的用餐角色会在启动前补齐并使旧推荐失效。前端构建后从 SQLite 恢复图片。
 
-可选 `.env` 中的 `HUAIWEI_PUBLIC_BASE_URL` 必须与浏览器 origin 一致，包括协议和端口；例如使用 `http://127.0.0.1:8080` 时也应配置该地址。初次可直接使用访客；用户和商家各自注册登录，无内置公开密码。导入的老乡鸡暂未绑定商家，商家可创建自己的餐馆和菜单。已有餐馆归属不通过公开接口随意认领。
+可选 `.env` 中的 `JUXIAOBAO_PUBLIC_BASE_URL` 必须与浏览器 origin 一致，包括协议和端口；例如使用 `http://127.0.0.1:8080` 时也应配置该地址。初次可直接使用访客；用户和商家各自注册登录，无内置公开密码。导入的老乡鸡暂未绑定商家，商家可创建自己的餐馆和菜单。已有餐馆归属不通过公开接口随意认领。
 
 ## 本轮接入
 
