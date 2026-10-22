@@ -34,6 +34,7 @@ bash scripts/cj.sh prepare
 export JUXIAOBAO_CANGJIE_SDK=/你的SDK目录/cangjie
 
 # 下载锁定版本的 stdx、sqlite4cj 及原生依赖源码。
+# 如果在运行过ubuntu 24.04构建流程可以跳过这一步
 bash scripts/bootstrap-deps.sh
 # 如果缺少兼容的 Clang/OpenSSL，且已安装 conda，可改用：
 # bash scripts/bootstrap-deps.sh --local-tools
@@ -42,12 +43,15 @@ npm ci
 npm --prefix frontend ci
 cp .env.example .env 
 # 这里可以先配置文件再进入下一步
+
+# 运行命令
 bash scripts/dev.sh
 ```
 默认打开 [首页](http://127.0.0.1:8080/)。`scripts/dev.sh` 会依次构建前端和后端、首次导入测试数据菜单，然后启动业务服务。
 
 首次编译 stdx 会比较慢。停止服务按 `Ctrl+C`，再次启动仍保留原数据库内容，不会重新导入覆盖商家改动。
 
+测试餐馆码为`LAOXIANGJI`,在主页输入即可进入
 
 ### 配置文件
 
