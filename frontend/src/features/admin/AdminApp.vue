@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import AppIcon from "../../shared/AppIcon.vue";
 import ImageUpload from "../../shared/ImageUpload.vue";
 import ModalSheet from "../../shared/ModalSheet.vue";
@@ -79,6 +79,18 @@ const categoryLabels: Record<string, string> = {
   side: "小吃",
   drink: "饮品",
 };
+const visibleCategories = computed(() =>
+  Object.fromEntries(
+    Object.entries(categoryLabels).filter(
+      ([value]) =>
+        value === "all" ||
+        menu.value?.dishes.some((dish) => dish.category === value),
+    ),
+  ),
+);
+watch(visibleCategories, (categories) => {
+  if (!(category.value in categories)) category.value = "all";
+});
 const catalog = computed(
   () =>
     menu.value?.dishes.filter(
@@ -333,7 +345,7 @@ async function logout() {
             <div class="menu-layout">
               <nav class="category-rail" aria-label="菜品分类">
                 <button
-                  v-for="(label, value) in categoryLabels"
+                  v-for="(label, value) in visibleCategories"
                   :key="value"
                   :aria-pressed="category === value"
                   @click="category = value"

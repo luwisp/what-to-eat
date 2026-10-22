@@ -17,11 +17,9 @@ const showTabs = computed(
     <header class="app-header">
       <RouterLink to="/" class="brand"
         ><span class="brand-symbol"><AppIcon name="dish" :size="22" /></span
-        >聚小宝<span class="brand-caption"
-          >每个人，都有喜欢的菜</span
-        ></RouterLink
+        >聚小宝</RouterLink
       >
-      <RouterLink :to="accountLink" class="header-account"
+      <RouterLink v-if="!showTabs" :to="accountLink" class="header-account"
         ><AppIcon name="user" :size="19" />我的</RouterLink
       >
     </header>

@@ -3,7 +3,19 @@ import { ref, computed, nextTick } from "vue";
 import type { Preferences, MenuSnapshot } from "./contracts";
 const prefs = defineModel<Preferences>({ required: true });
 const otherAvoid = ref(""),
-  otherAllergen = ref("");
+  otherAllergen = ref(""),
+  otherUsual = ref("");
+const emit = defineEmits<{ selectMenu: [] }>();
+function addUsual() {
+  const value = otherUsual.value.trim();
+  if (value && !prefs.value.tastePreferences.includes(value))
+    prefs.value = {
+      ...prefs.value,
+      tastePreferences: [...prefs.value.tastePreferences, value],
+    };
+  otherUsual.value = "";
+  addingUsual.value = false;
+}
 function add(key: "avoidFoods" | "allergens") {
   const source = key === "avoidFoods" ? otherAvoid : otherAllergen;
   const value = source.value.trim();
@@ -20,6 +32,7 @@ const props = defineProps<{
   defaultsOnly?: boolean;
   menu?: MenuSnapshot;
   menuLink?: string;
+  menuPicker?: boolean;
 }>();
 const ingredientSearch = ref("");
 const showAllIngredients = ref(false);
@@ -105,6 +118,19 @@ const spiceIndex = computed({
     prefs.value.maxSpiceLevel = v === 4 ? null : v;
   },
 });
+const usualOptions = ["鱼", "鸡肉", "蔬菜", "汤"];
+const customUsual = computed(() =>
+  prefs.value.tastePreferences.filter(
+    (v) => ![...usualOptions, "清淡", "咸鲜", "酸甜"].includes(v),
+  ),
+);
+const addingUsual = ref(false);
+const usualInput = ref<HTMLInputElement>();
+async function showUsual() {
+  addingUsual.value = true;
+  await nextTick();
+  usualInput.value?.focus();
+}
 const addingAvoid = ref(false),
   addingAllergen = ref(false);
 const avoidInput = ref<HTMLInputElement>(),
@@ -192,12 +218,25 @@ const allergenOptions = [
       </div>
     </div>
     <div class="preference-block">
-      <span class="preference-label">想吃</span>
+      <span class="preference-label">{{
+        props.defaultsOnly ? "常吃" : "想吃"
+      }}</span>
       <div class="chips wish-options">
         <button
           v-for="v in props.defaultsOnly
-            ? ['鱼', '鸡肉', '蔬菜', '汤']
-            : ['鱼', '鸡肉', '蔬菜', '汤', '面条', '馄饨', '米饭']"
+            ? [...usualOptions, ...customUsual]
+            : [
+                ...new Set([
+                  '鱼',
+                  '鸡肉',
+                  '蔬菜',
+                  '汤',
+                  '面条',
+                  '馄饨',
+                  '米饭',
+                  ...customUsual,
+                ]),
+              ]"
           :key="v"
           type="button"
           :aria-pressed="prefs.tastePreferences.includes(v)"
@@ -205,6 +244,32 @@ const allergenOptions = [
         >
           {{ v }}
         </button>
+        <template v-if="props.defaultsOnly">
+          <form
+            v-if="addingUsual"
+            class="inline-add"
+            @submit.prevent="addUsual"
+          >
+            <input
+              ref="usualInput"
+              v-model="otherUsual"
+              aria-label="其他常吃的食物"
+              placeholder="食物名"
+              maxlength="50"
+            />
+            <button type="submit" aria-label="添加常吃的食物">✓</button>
+            <button
+              type="button"
+              aria-label="取消添加常吃的食物"
+              @click="addingUsual = false"
+            >
+              ×
+            </button>
+          </form>
+          <button v-else class="add-chip" type="button" @click="showUsual">
+            ＋ 添加常吃
+          </button>
+        </template>
         <template v-if="!props.defaultsOnly">
           <button
             v-for="d in selectedDishes"
@@ -226,8 +291,16 @@ const allergenOptions = [
           >
             {{ d.name }} ×
           </button>
+          <button
+            v-if="menuPicker"
+            class="add-chip"
+            type="button"
+            @click="emit('selectMenu')"
+          >
+            ＋ 菜单选菜
+          </button>
           <RouterLink
-            v-if="menuLink"
+            v-else-if="menuLink"
             :to="menuLink"
             class="add-chip"
             aria-label="看菜单，选想吃的菜 →"

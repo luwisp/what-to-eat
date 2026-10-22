@@ -27,7 +27,7 @@ test("browse first, preserve wishes and text, invite before filling, independent
   await expect(g.locator(".dining-members li")).toHaveCount(2);
   await g.getByRole("link", { name: /^(填写|编辑)我的要求$/ }).click();
   await g.getByLabel("还有想说的？").fill("今天不想太油腻");
-  await g.getByRole("button", { name: "提交本局要求" }).click();
+  await g.getByRole("button", { name: "确认并返回" }).click();
   await expect(h.getByText("1 / 2 人已填写", { exact: false })).toBeVisible();
   await h.getByRole("link", { name: /^(填写|编辑)我的要求$/ }).click();
   await expect(h.getByRole("button", { name: /^移除想吃/ })).toHaveCount(1);
@@ -35,8 +35,8 @@ test("browse first, preserve wishes and text, invite before filling, independent
   await h.getByRole("link", { name: "看菜单，选想吃的菜 →" }).click();
   await h.getByRole("button", { name: "完成选择" }).click();
   await expect(h.getByLabel("还有想说的？")).toHaveValue("我的文字草稿");
-  await h.getByRole("button", { name: "提交本局要求" }).click();
-  await h.getByRole("button", { name: "看看怎么点", exact: true }).click();
+  await h.getByRole("button", { name: "确认并返回" }).click();
+  await h.getByRole("button", { name: "确认方案", exact: true }).click();
   await expect(h.getByRole("heading", { name: "这桌这样点" })).toBeVisible();
   await expect(
     h

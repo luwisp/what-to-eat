@@ -98,7 +98,6 @@ onUnmounted(() => controller?.abort());
     </div>
     <div class="section-heading">
       <h2>一桌人的口味，都照顾到</h2>
-      <span>一起选，更好点</span>
     </div>
     <div class="dining-steps card">
       <div>
@@ -114,14 +113,6 @@ onUnmounted(() => controller?.abort());
         ><strong>一起定方案</strong><small>看看这一桌怎么点</small>
       </div>
     </div>
-    <RouterLink to="/account" class="account-entry card">
-      <span class="account-icon"><AppIcon name="user" /></span>
-      <span
-        ><strong>记住你的用餐习惯</strong
-        ><small>登录 / 我的默认设置</small></span
-      >
-      <AppIcon name="arrow" :size="18" />
-    </RouterLink>
     <p class="home-footnote">无需登录，也可以建局、邀请和点菜</p>
   </section>
 </template>

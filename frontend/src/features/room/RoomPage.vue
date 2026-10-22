@@ -27,6 +27,7 @@ import {
   changePlanItem,
 } from "../menu/planDraft";
 import PreferencesForm from "../../shared/PreferencesForm.vue";
+import MenuPage from "../menu/MenuPage.vue";
 const aiEnabled = ref(false);
 const route = useRoute(),
   router = useRouter(),
@@ -40,8 +41,11 @@ const route = useRoute(),
   qr = ref(""),
   people = ref(4),
   budget = ref(""),
+  tableSettings = ref<HTMLDetailsElement>(),
+  tableSettingsOpen = ref(false),
   busy = ref(false),
   companion = ref(false),
+  companionMenu = ref(false),
   companionId = ref(""),
   companionName = ref(""),
   companionPrefs = ref(emptyPreferences()),
@@ -63,6 +67,31 @@ const menuLink = computed(() =>
     : "",
 );
 const editing = computed(() => route.path.endsWith("/preferences"));
+const sessionSettingsChanged = computed(() => {
+  const session = state.value?.session;
+  if (!session) return false;
+  const amount = budget.value.trim();
+  return (
+    people.value !== session.people ||
+    (amount === "" ? null : Number(amount) * 100) !== session.budgetPerPersonFen
+  );
+});
+function resetSessionSettings() {
+  if (!state.value) return;
+  people.value = state.value.session.people;
+  budget.value =
+    state.value.session.budgetPerPersonFen === null
+      ? ""
+      : String(state.value.session.budgetPerPersonFen / 100);
+}
+function closeSessionSettings() {
+  resetSessionSettings();
+  if (tableSettings.value) tableSettings.value.open = false;
+}
+function toggleSessionSettings(event: Event) {
+  tableSettingsOpen.value = (event.target as HTMLDetailsElement).open;
+  if (!tableSettingsOpen.value) resetSessionSettings();
+}
 const host = computed(
   () => state.value?.self?.id === state.value?.session.hostParticipantId,
 );
@@ -144,11 +173,7 @@ onMounted(() => {
         else if (!s.recommendation || s.recommendationInvalid)
           error.value = "这次没能完成搭配，请再试一次。";
       }
-      people.value = s.session.people;
-      budget.value =
-        s.session.budgetPerPersonFen === null
-          ? ""
-          : String(s.session.budgetPerPersonFen / 100);
+      if (!tableSettingsOpen.value) resetSessionSettings();
       if (s.self && initialized !== s.self.id) {
         initialized = s.self.id;
         key = `room:${s.session.roomCode}:${s.self.id}`;
@@ -261,8 +286,9 @@ async function updateSession() {
   try {
     await send("update_session", {
       people: people.value,
-      budgetPerPersonFen: budget.value ? priceFen(budget.value) : null,
+      budgetPerPersonFen: budget.value.trim() ? priceFen(budget.value) : null,
     });
+    if (!error.value) closeSessionSettings();
   } catch (e) {
     error.value = (e as Error).message;
   }
@@ -274,6 +300,7 @@ function editCompanion(id = "") {
   companionPrefs.value = member?.preferences
     ? copyJson(member.preferences)
     : emptyPreferences();
+  companionMenu.value = false;
   companion.value = true;
 }
 async function saveCompanion() {
@@ -424,7 +451,7 @@ function suitableFor(memberId: string) {
           :disabled="busy || state?.session.state === 'closed'"
           @click="save(true)"
         >
-          {{ busy ? "正在保存…" : "提交本局要求" }}
+          {{ busy ? "正在保存…" : "确认并返回" }}
         </button>
       </div>
     </div>
@@ -485,7 +512,12 @@ function suitableFor(memberId: string) {
           ＋ 帮同行人填写
         </button>
       </section>
-      <details v-if="host" class="table-settings card">
+      <details
+        v-if="host"
+        ref="tableSettings"
+        class="table-settings card"
+        @toggle="toggleSessionSettings"
+      >
         <summary>
           <span
             >{{ state.session.people }} 人用餐 ·
@@ -505,14 +537,24 @@ function suitableFor(memberId: string) {
                 :min="state.members.length"
                 max="100" /></label
             ><label
-              >人均预算（元，可不填）<input
-                v-model="budget"
-                inputmode="decimal"
+              >人均预算（元）<input v-model="budget" inputmode="decimal"
             /></label>
           </div>
-          <button :disabled="busy || state.session.state === 'closed'">
-            保存人数和预算
-          </button>
+          <div v-if="sessionSettingsChanged" class="table-settings-actions">
+            <button
+              type="button"
+              :disabled="busy"
+              @click="closeSessionSettings"
+            >
+              取消
+            </button>
+            <button
+              class="settings-confirm"
+              :disabled="busy || state.session.state === 'closed'"
+            >
+              {{ busy ? "保存中…" : "确定" }}
+            </button>
+          </div>
         </form>
       </details>
       <RouterLink
@@ -537,9 +579,7 @@ function suitableFor(memberId: string) {
           @click="requestRecommendation()"
         >
           <span v-if="working" class="button-spinner"></span
-          >{{
-            working ? "正在搭配…" : result ? "重新搭配这一桌" : "看看怎么点"
-          }}
+          >{{ working ? "正在搭配…" : result ? "重新搭配这一桌" : "确认方案" }}
         </button>
         <p v-if="!submitted">从成员列表填写要求，就可以开始搭配了</p>
       </div>
@@ -800,9 +840,15 @@ function suitableFor(memberId: string) {
       <h2>还没开始搭配</h2>
       <RouterLink :to="`/s/${route.params.code}`">返回这一桌</RouterLink>
     </div>
-    <div v-if="resultView && result" class="dining-chat">
+    <div
+      v-if="resultView && result"
+      class="dining-chat"
+      :class="{ 'chat-expanded': chatOpen }"
+      @keydown.esc="chatOpen = false"
+    >
       <button
         type="button"
+        v-if="!chatOpen"
         class="chat-launcher"
         :aria-expanded="chatOpen"
         aria-controls="dining-chat"
@@ -906,19 +952,45 @@ function suitableFor(memberId: string) {
     >
     <ModalSheet
       v-model="companion"
-      :title="companionId ? '编辑同行人的要求' : '帮同行人填写'"
-      ><label class="companion-name"
-        >称呼<input
-          v-model="companionName"
-          maxlength="40"
-          placeholder="同行人" /></label
-      ><PreferencesForm v-model="companionPrefs" :menu="menu" />
-      <div class="modal-actions">
-        <button @click="companion = false">取消</button
-        ><button class="primary" :disabled="busy" @click="saveCompanion">
-          保存同行人要求
-        </button>
-      </div></ModalSheet
+      :title="
+        companionMenu
+          ? '为同行人选菜'
+          : companionId
+            ? '编辑同行人的要求'
+            : '帮同行人填写'
+      "
+      :wide="companionMenu"
     >
+      <template v-if="companionMenu">
+        <button type="button" @click="companionMenu = false">
+          ← 返回填写要求
+        </button>
+        <MenuPage
+          v-model="companionPrefs"
+          embedded
+          :snapshot="menu"
+          @done="companionMenu = false"
+        />
+      </template>
+      <template v-else>
+        <label class="companion-name"
+          >称呼<input
+            v-model="companionName"
+            maxlength="40"
+            placeholder="同行人" /></label
+        ><PreferencesForm
+          v-model="companionPrefs"
+          :menu="menu"
+          :menu-picker="!!menu"
+          @select-menu="companionMenu = true"
+        />
+        <div class="modal-actions">
+          <button @click="companion = false">取消</button
+          ><button class="primary" :disabled="busy" @click="saveCompanion">
+            保存同行人要求
+          </button>
+        </div>
+      </template>
+    </ModalSheet>
   </section>
 </template>

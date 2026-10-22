@@ -45,7 +45,7 @@ public class PreferenceInterpreter {
                         let level = value.asInt().getValue()
                         if (level >= 0 && level <= 3) { suggestion.wantedSpiceLevel = Some(level) }
                     }
-                    result.put("message", JsonString("以下为待确认建议，应用后仍需提交本局要求"))
+                    result.put("message", JsonString("以下为待确认建议，应用后仍需确认并保存"))
                 } catch (_: Exception) {
                     ()
                 }

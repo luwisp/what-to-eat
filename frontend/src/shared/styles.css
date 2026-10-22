@@ -1467,6 +1467,24 @@ td {
 .table-settings form {
   margin-top: 20px;
 }
+.table-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.table-settings-actions button {
+  padding: 7px 16px;
+  border: 0;
+  font-size: 12px;
+  background: transparent;
+  color: var(--muted);
+}
+.table-settings-actions .settings-confirm {
+  background: var(--green-soft);
+  color: #167849;
+  border-radius: 9px;
+}
 .lobby-action {
   text-align: center;
   margin: 24px 0;
@@ -2545,10 +2563,7 @@ td {
   font-size: 13px;
 }
 .dining-chat-panel {
-  position: absolute;
-  right: 0;
-  bottom: 62px;
-  width: 380px;
+  width: min(380px, calc(100vw - 40px));
   height: min(530px, calc(100dvh - 145px));
   border: 1px solid #e2ebe4;
   border-radius: 24px;
@@ -2708,4 +2723,20 @@ td {
   .chat-scroll {
     scroll-behavior: auto;
   }
+}
+
+.embedded-menu {
+  margin-top: 16px;
+  padding-bottom: 0;
+}
+.embedded-menu .menu-layout {
+  min-height: 360px;
+}
+.embedded-menu .selection-bar {
+  position: sticky;
+  bottom: 0;
+  left: auto;
+  width: 100%;
+  transform: none;
+  margin-top: 16px;
 }

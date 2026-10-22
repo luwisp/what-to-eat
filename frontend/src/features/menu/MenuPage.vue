@@ -15,16 +15,23 @@ import {
   changePlanItem,
   type PlanDraft,
 } from "./planDraft";
-import { loadDraft, saveDraft, type DraftKey } from "./drafts";
+import {
+  emptyPreferences,
+  loadDraft,
+  saveDraft,
+  type DraftKey,
+} from "./drafts";
+const props = defineProps<{ embedded?: boolean; snapshot?: MenuSnapshot }>();
+const emit = defineEmits<{ done: [] }>();
+const prefs = defineModel<Preferences>({ default: emptyPreferences });
 const route = useRoute(),
   router = useRouter(),
   menu = ref<MenuSnapshot>(),
   error = ref(""),
-  category = ref("all"),
-  prefs = ref<Preferences>(
-    loadDraft(`restaurant:${String(route.params.code)}`),
-  );
-const editPlan = computed(() => route.query.edit === "1" && !!route.query.room);
+  category = ref("all");
+const editPlan = computed(
+  () => !props.embedded && route.query.edit === "1" && !!route.query.room,
+);
 const plan = ref<PlanDraft>({ version: 0, items: [] });
 const planMember = ref("");
 function planQuantity(id: string, meal = false) {
@@ -69,7 +76,25 @@ const labels: Record<string, string> = {
   drink: "饮品",
   setMeal: "套餐",
 };
+const visibleCategories = computed(() =>
+  Object.fromEntries(
+    Object.entries(labels).filter(
+      ([value]) =>
+        value === "all" ||
+        (value === "setMeal"
+          ? !!menu.value?.setMeals.length
+          : menu.value?.dishes.some((dish) => dish.category === value)),
+    ),
+  ),
+);
+watch(visibleCategories, (categories) => {
+  if (!(category.value in categories)) category.value = "all";
+});
 async function load() {
+  if (props.embedded) {
+    menu.value = props.snapshot;
+    return;
+  }
   try {
     let code = String(route.params.code);
     if (route.query.room) {
@@ -104,7 +129,7 @@ onMounted(load);
 watch(
   prefs,
   (value) => {
-    if (!editPlan.value) saveDraft(key, value);
+    if (!props.embedded && !editPlan.value) saveDraft(key, value);
   },
   { deep: true },
 );
@@ -132,6 +157,10 @@ const selectedCount = computed(() =>
     : prefs.value.wantedDishIds.length + prefs.value.wantedSetMealIds.length,
 );
 function done() {
+  if (props.embedded) {
+    emit("done");
+    return;
+  }
   void router.push(
     route.query.room
       ? `/s/${route.query.room}/${editPlan.value ? "result?edit=1" : "preferences"}`
@@ -140,8 +169,8 @@ function done() {
 }
 </script>
 <template>
-  <section class="menu-page">
-    <div class="menu-heading">
+  <section class="menu-page" :class="{ 'embedded-menu': props.embedded }">
+    <div v-if="!props.embedded" class="menu-heading">
       <span class="restaurant-avatar"><AppIcon name="store" :size="30" /></span>
       <div>
         <p class="eyebrow">餐馆菜单</p>
@@ -158,7 +187,7 @@ function done() {
     <div class="menu-layout">
       <nav class="category-rail" aria-label="菜品分类">
         <button
-          v-for="(label, value) in labels"
+          v-for="(label, value) in visibleCategories"
           :key="value"
           :aria-pressed="category === value"
           @click="category = String(value)"
@@ -319,10 +348,15 @@ function done() {
           </article>
         </div>
         <p
-          v-if="menu && !dishes.length && category !== 'setMeal'"
+          v-if="
+            menu &&
+            !dishes.length &&
+            !menu.setMeals.length &&
+            category === 'all'
+          "
           class="empty-category"
         >
-          这个分类还没有菜品，看看其他分类吧
+          这家餐馆还没有菜品
         </p>
         <p
           v-if="menu && category === 'setMeal' && !menu.setMeals.length"

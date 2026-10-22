@@ -41,12 +41,12 @@ test("real accounts, defaults, two members, v3 meals, manual edits and confirmat
   const room = h.url();
   await h.getByRole("link", { name: /^(填写|编辑)我的要求$/ }).click();
   await expect(h.getByLabel("食量", { exact: true })).toHaveValue("2");
-  await h.getByRole("button", { name: "提交本局要求" }).click();
+  await h.getByRole("button", { name: "确认并返回" }).click();
   await g.goto(room);
   await g.getByRole("link", { name: /^(填写|编辑)我的要求$/ }).click();
-  await g.getByRole("button", { name: "提交本局要求" }).click();
+  await g.getByRole("button", { name: "确认并返回" }).click();
   await expect(h.getByText("2 / 2 人已填写", { exact: false })).toBeVisible();
-  await h.getByRole("button", { name: "看看怎么点", exact: true }).click();
+  await h.getByRole("button", { name: "确认方案", exact: true }).click();
   await expect(h.getByText("饭菜已配齐", { exact: false })).toBeVisible();
   await h.getByText("看看每个人怎么吃", { exact: true }).click();
   await expect(h.getByText("热菜 3 / 3 份", { exact: false })).toBeVisible();
@@ -190,8 +190,8 @@ test("real merchant menu writes, package references and live recommendation inva
   await page.getByLabel("用餐人数").fill("1");
   await page.getByRole("button", { name: "创建聚餐局" }).click();
   await page.getByRole("link", { name: /^(填写|编辑)我的要求$/ }).click();
-  await page.getByRole("button", { name: "提交本局要求" }).click();
-  await page.getByRole("button", { name: "看看怎么点", exact: true }).click();
+  await page.getByRole("button", { name: "确认并返回" }).click();
+  await page.getByRole("button", { name: "确认方案", exact: true }).click();
   await expect(page.getByText("饭菜已配齐", { exact: false })).toBeVisible();
   expect(
     (
@@ -283,7 +283,7 @@ test("simple preferences keep menu wishes, allergies and implicit staple choice"
     fullPage: true,
   });
   await page.setViewportSize({ width: 320, height: 700 });
-  const submit = page.getByRole("button", { name: "提交本局要求" });
+  const submit = page.getByRole("button", { name: "确认并返回" });
   await expect(submit).toBeInViewport();
   expect(
     await page.evaluate(
@@ -291,7 +291,7 @@ test("simple preferences keep menu wishes, allergies and implicit staple choice"
     ),
   ).toBeTruthy();
   await submit.click();
-  await page.getByRole("button", { name: "看看怎么点", exact: true }).click();
+  await page.getByRole("button", { name: "确认方案", exact: true }).click();
   await expect(page.getByText("饭菜已配齐", { exact: false })).toBeVisible();
   const state = await (
     await page.request.get(
@@ -334,6 +334,15 @@ test("account error recovery, relogin defaults and local return navigation", asy
   await page.keyboard.press("End");
   await page.keyboard.press("ArrowLeft");
   await page.getByRole("button", { name: "香菜", exact: true }).click();
+  await expect(
+    page.locator(".preference-label").filter({ hasText: /^常吃$/ }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "＋ 添加常吃", exact: true }).click();
+  await page.getByLabel("其他常吃的食物").fill("西兰花");
+  await page.getByLabel("其他常吃的食物").press("Enter");
+  await expect(
+    page.getByRole("button", { name: "西兰花", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "保存为我的默认设置" }).click();
   await expect(page.getByRole("status")).toContainText("已保存");
   await page.getByRole("button", { name: "退出账号" }).click();
@@ -348,6 +357,16 @@ test("account error recovery, relogin defaults and local return navigation", asy
   ).toHaveAttribute("aria-pressed", "true");
   await page.reload();
   await expect(page.getByLabel("食量", { exact: true })).toHaveValue("2");
+  await expect(
+    page.getByRole("button", { name: "西兰花", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "西兰花", exact: true }).click();
+  await page.getByRole("button", { name: "保存为我的默认设置" }).click();
+  await expect(page.getByRole("status")).toContainText("已保存");
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "西兰花", exact: true }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "← 返回原页面" }).click();
   await expect(page).toHaveURL(/\/r\/LAOXIANGJI$/);
 });
@@ -365,6 +384,9 @@ test("recover entry, invite clearly, edit from members and open visual results",
     page.getByRole("button", { name: "重试", exact: true }),
   ).toHaveCount(0);
   await page.getByRole("link", { name: "回首页重新输入" }).click();
+  await expect(
+    page.getByRole("link", { name: "我的", exact: true }),
+  ).toHaveCount(1);
   await page.getByLabel("或输入餐馆码 / 聚餐码").fill("MISSING");
   await page.getByRole("button", { name: "进入", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("没有找到");
@@ -375,6 +397,25 @@ test("recover entry, invite clearly, edit from members and open visual results",
   await page.getByRole("button", { name: "创建聚餐局" }).click();
   await expect(page).toHaveURL(/\/s\/J[A-Za-z0-9]{6}$/);
   const roomCode = page.url().split("/s/")[1];
+  const settings = page.locator(".table-settings");
+  await settings.locator("summary").click();
+  await expect(
+    settings.getByRole("button", { name: "确定", exact: true }),
+  ).toHaveCount(0);
+  await settings.getByLabel("人数", { exact: true }).fill("3");
+  await settings.getByRole("button", { name: "取消", exact: true }).click();
+  await expect(settings).not.toHaveAttribute("open");
+  await expect(settings.locator("summary")).toContainText("2 人用餐");
+  await settings.locator("summary").click();
+  await expect(settings.getByLabel("人数", { exact: true })).toHaveValue("2");
+  await settings.getByLabel("人均预算（元）", { exact: true }).fill("40");
+  await settings.getByRole("button", { name: "确定", exact: true }).click();
+  await expect(settings).not.toHaveAttribute("open");
+  await expect(settings.locator("summary")).toContainText("人均 ¥40.00");
+  await settings.locator("summary").click();
+  await settings.getByLabel("人均预算（元）", { exact: true }).fill("");
+  await settings.getByRole("button", { name: "确定", exact: true }).click();
+  await expect(settings.locator("summary")).toContainText("预算不限");
   await expect(page.locator(".room-tabs")).toHaveCount(0);
   await page.getByRole("button", { name: "邀请同行人", exact: true }).click();
   const invite = page.getByRole("dialog", { name: "邀请同行人" });
@@ -416,13 +457,54 @@ test("recover entry, invite clearly, edit from members and open visual results",
     path: "/tmp/juxiaobao-preferences-redesign.png",
     fullPage: true,
   });
-  await page.getByRole("button", { name: "提交本局要求" }).click();
+  await page.getByRole("button", { name: "确认并返回" }).click();
   await page.getByRole("button", { name: "＋ 帮同行人填写" }).click();
   const companion = page.getByRole("dialog", { name: "帮同行人填写" });
   await companion.getByLabel("称呼").fill("同行人 A");
+  await companion.getByLabel("还有想说的？").fill("同行人想喝汤");
+  await companion
+    .getByRole("button", { name: "＋ 菜单选菜", exact: true })
+    .click();
+  const picker = page.getByRole("dialog", { name: "为同行人选菜" });
+  await expect(picker).toBeVisible();
+  await picker.getByRole("button", { name: "汤", exact: true }).click();
+  const chosenName = await picker.locator(".menu-dish h2").first().innerText();
+  await picker
+    .getByRole("button", { name: "想吃这道", exact: true })
+    .first()
+    .click();
+  await picker.getByRole("button", { name: "完成选择", exact: true }).click();
+  await expect(companion.getByLabel("称呼")).toHaveValue("同行人 A");
+  await expect(companion.getByLabel("还有想说的？")).toHaveValue(
+    "同行人想喝汤",
+  );
+  await expect(
+    companion.getByRole("button", {
+      name: "移除想吃" + chosenName,
+      exact: true,
+    }),
+  ).toBeVisible();
   await companion.getByRole("button", { name: "保存同行人要求" }).click();
   await expect(companion).not.toBeVisible();
   await expect(page.locator(".dining-members li")).toHaveCount(2);
+  await page
+    .getByRole("button", { name: "修改同行人 A的要求", exact: true })
+    .click();
+  const editCompanion = page.getByRole("dialog", { name: "编辑同行人的要求" });
+  await expect(
+    editCompanion.getByRole("button", {
+      name: "移除想吃" + chosenName,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await editCompanion
+    .getByRole("button", { name: "取消", exact: true })
+    .click();
+  await page.getByRole("link", { name: "编辑我的要求", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "移除想吃" + chosenName, exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "确认并返回", exact: true }).click();
   await page.screenshot({
     path: "/tmp/juxiaobao-room-redesign.png",
     fullPage: true,
@@ -439,7 +521,7 @@ test("recover entry, invite clearly, edit from members and open visual results",
     ws.onMessage((message) => server.send(message));
   });
   await page.reload();
-  await page.getByRole("button", { name: "看看怎么点", exact: true }).click();
+  await page.getByRole("button", { name: "确认方案", exact: true }).click();
   await expect(page.locator(".working-panel")).toBeVisible();
   await expect(page).toHaveURL(new RegExp("/s/" + roomCode + "/result$"));
   await expect(page.locator(".result-dish")).not.toHaveCount(0);
@@ -535,8 +617,8 @@ test("floating conversation stays open, preserves page position and handles repl
   await page.getByLabel("用餐人数").fill("4");
   await page.getByRole("button", { name: "创建聚餐局" }).click();
   await page.getByRole("link", { name: "填写我的要求", exact: true }).click();
-  await page.getByRole("button", { name: "提交本局要求" }).click();
-  await page.getByRole("button", { name: "看看怎么点", exact: true }).click();
+  await page.getByRole("button", { name: "确认并返回" }).click();
+  await page.getByRole("button", { name: "确认方案", exact: true }).click();
   await expect(page).toHaveURL(/\/result$/);
   await page.evaluate(() => window.scrollTo(0, 400));
   const before = await page.evaluate(() => window.scrollY);
@@ -544,6 +626,12 @@ test("floating conversation stays open, preserves page position and handles repl
   await page.getByRole("button", { name: "找点菜员聊聊" }).click();
   const chat = page.getByRole("dialog", { name: "点菜员对话" });
   await expect(chat).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "找点菜员聊聊", exact: true }),
+  ).toHaveCount(0);
+  const box = await chat.boundingBox();
+  expect(box!.y + box!.height).toBeGreaterThan(810);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(852);
   await chat.getByLabel("和点菜员说说").fill("你好");
   await chat.getByRole("button", { name: "发送", exact: true }).click();
   await expect(
@@ -570,4 +658,7 @@ test("floating conversation stays open, preserves page position and handles repl
   await page.screenshot({ path: "/tmp/juxiaobao-floating-chat.png" });
   await chat.getByRole("button", { name: "收起点菜员" }).click();
   await expect(chat).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "找点菜员聊聊", exact: true }),
+  ).toBeVisible();
 });
