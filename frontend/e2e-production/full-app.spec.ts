@@ -262,6 +262,41 @@ test("simple preferences keep menu wishes, allergies and implicit staple choice"
     })
     .getByRole("button", { name: /想吃这道/ })
     .click();
+  await page.getByRole("button", { name: "查看已选想吃", exact: true }).click();
+  const selected = page.getByRole("region", { name: "已选想吃清单" });
+  await expect(selected.getByText(wonton.name, { exact: true })).toBeVisible();
+  await expect(selected.getByText(drink.name, { exact: true })).toBeVisible();
+  await selected
+    .getByRole("button", { name: "取消想吃" + drink.name, exact: true })
+    .click();
+  await expect(selected.getByText(drink.name, { exact: true })).toHaveCount(0);
+  const drinkCard = page
+    .getByRole("article")
+    .filter({
+      has: page.getByRole("heading", { name: drink.name, exact: true }),
+    });
+  await expect(
+    drinkCard.getByRole("button", { name: "想吃这道", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
+  await selected
+    .getByRole("button", { name: "收起已选想吃", exact: true })
+    .click();
+  await expect(selected).toHaveCount(0);
+  await drinkCard
+    .getByRole("button", { name: "想吃这道", exact: true })
+    .click();
+  await page.getByRole("button", { name: "查看已选想吃", exact: true }).click();
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  await expect(
+    page.getByRole("button", { name: "完成选择", exact: true }),
+  ).toBeInViewport();
+  await page.screenshot({ path: "/tmp/juxiaobao-selected-wishes.png" });
+  await page.setViewportSize({ width: 393, height: 852 });
   await page.getByRole("button", { name: "完成选择" }).click();
   await expect(
     page.getByRole("button", { name: "移除想吃" + drink.name }),

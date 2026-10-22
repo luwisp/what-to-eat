@@ -151,6 +151,21 @@ const dishes = computed(
       (d) => category.value === "all" || d.category === category.value,
     ) ?? [],
 );
+const wishesOpen = ref(false);
+const selectedWishes = computed(() => [
+  ...prefs.value.wantedDishIds.map((id) => ({
+    id,
+    meal: false,
+    name:
+      menu.value?.dishes.find((dish) => dish.id === id)?.name ?? "菜品已失效",
+  })),
+  ...prefs.value.wantedSetMealIds.map((id) => ({
+    id,
+    meal: true,
+    name:
+      menu.value?.setMeals.find((meal) => meal.id === id)?.name ?? "套餐已失效",
+  })),
+]);
 const selectedCount = computed(() =>
   editPlan.value
     ? plan.value.items.length
@@ -372,24 +387,72 @@ function done() {
         </p>
       </div>
     </div>
-    <div class="selection-bar">
+    <div
+      class="selection-bar"
+      :class="{ 'wishes-open': wishesOpen && !editPlan }"
+      @keydown.esc="wishesOpen = false"
+    >
+      <section
+        v-if="!editPlan && wishesOpen"
+        id="selected-wishes"
+        class="selected-wishes"
+        aria-label="已选想吃清单"
+      >
+        <div class="selected-wishes-heading">
+          <strong>已选想吃</strong
+          ><button
+            type="button"
+            aria-label="收起已选想吃"
+            @click="wishesOpen = false"
+          >
+            收起 ⌄
+          </button>
+        </div>
+        <ul v-if="selectedWishes.length">
+          <li
+            v-for="wish in selectedWishes"
+            :key="(wish.meal ? 'meal:' : 'dish:') + wish.id"
+          >
+            <span>{{ wish.name }}<small v-if="wish.meal">套餐</small></span>
+            <button
+              type="button"
+              :aria-label="'取消想吃' + wish.name"
+              @click="toggle(wish.id, wish.meal)"
+            >
+              ×
+            </button>
+          </li>
+        </ul>
+        <p v-else>还没标记想吃的菜，去菜单看看吧</p>
+      </section>
       <span class="selection-icon"
         ><AppIcon name="dish" :size="26" /><b v-if="selectedCount">{{
           selectedCount
         }}</b></span
       >
-      <div>
-        <strong>{{
-          editPlan
-            ? `${selectedCount} 项 · ${money(planTotal)}`
-            : selectedCount
+      <div v-if="editPlan">
+        <strong>{{ selectedCount }} 项 · {{ money(planTotal) }}</strong>
+        <small>返回方案后保存并校验</small>
+      </div>
+      <button
+        v-else
+        type="button"
+        class="selection-summary"
+        :aria-expanded="wishesOpen"
+        aria-controls="selected-wishes"
+        aria-label="查看已选想吃"
+        @click="wishesOpen = !wishesOpen"
+      >
+        <strong
+          >{{
+            selectedCount
               ? `已标记 ${selectedCount} 项想吃`
               : "看到喜欢的，就标记吧"
-        }}</strong
-        ><small>{{
-          editPlan ? "返回方案后保存并校验" : "只记录愿望，稍后一起决定"
-        }}</small>
-      </div>
+          }}
+          <span aria-hidden="true">{{ wishesOpen ? "⌄" : "⌃" }}</span></strong
+        >
+        <small>只记录愿望，稍后一起决定</small>
+      </button>
       <button class="primary" @click="done">
         {{ editPlan ? "返回方案" : "完成选择" }}
       </button>
