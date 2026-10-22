@@ -1,5 +1,6 @@
 import type { RoomSnapshot } from "./contracts";
 import { ensureVisitor } from "./api";
+import { createRequestId } from "./requestId";
 export interface RoomConnection {
   send(type: string, payload: Record<string, unknown>): Promise<void>;
   close(): void;
@@ -46,7 +47,7 @@ export function connectRoom(
         transport.send(
           JSON.stringify({
             type: "join_room",
-            requestId: "join-" + crypto.randomUUID(),
+            requestId: "join-" + createRequestId(),
             payload: { code },
           }),
         );
@@ -98,7 +99,7 @@ export function connectRoom(
     send(type, payload) {
       if (!ready || socket?.readyState !== WebSocket.OPEN)
         return Promise.reject(new Error("请等待房间状态恢复后再操作"));
-      const requestId = crypto.randomUUID();
+      const requestId = createRequestId();
       return new Promise<void>((resolve, reject) => {
         const expiry = setTimeout(() => {
           pending.delete(requestId);

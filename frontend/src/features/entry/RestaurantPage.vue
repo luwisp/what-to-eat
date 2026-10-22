@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ApiError, getMenu, createRoom, priceFen } from "../../shared/api";
 import AppIcon from "../../shared/AppIcon.vue";
 import type { MenuSnapshot } from "../../shared/contracts";
+import { createRequestId } from "../../shared/requestId";
 const route = useRoute(),
   router = useRouter(),
   menu = ref<MenuSnapshot>(),
@@ -13,9 +14,9 @@ const route = useRoute(),
   busy = ref(false),
   missing = ref(false),
   loading = ref(true);
-let requestId = crypto.randomUUID();
+let requestId = createRequestId();
 watch([people, budget], () => {
-  requestId = crypto.randomUUID();
+  requestId = createRequestId();
 });
 async function load() {
   loading.value = true;
@@ -43,7 +44,7 @@ async function create() {
       },
       requestId,
     );
-    requestId = crypto.randomUUID();
+    requestId = createRequestId();
     void router.push(`/s/${result.session.roomCode}`);
   } catch (e) {
     error.value = (e as Error).message;
