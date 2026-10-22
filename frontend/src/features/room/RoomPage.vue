@@ -192,6 +192,9 @@ onMounted(() => {
         if (!hasDraft(key) && hasDraft(`restaurant:${s.restaurantCode}`)) {
           const restaurant = loadDraft(`restaurant:${s.restaurantCode}`);
           prefs.value.wantedDishIds = restaurant.wantedDishIds;
+          prefs.value.wantedExtras = restaurant.wantedExtras.filter((wish) =>
+            restaurant.wantedDishIds.includes(wish.dishId),
+          );
           prefs.value.wantedSetMealIds = restaurant.wantedSetMealIds;
         }
         saveDraft(key, prefs.value);

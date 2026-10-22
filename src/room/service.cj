@@ -506,6 +506,14 @@ func sanitizeWishes(menu: MenuSnapshot, prefs: Preferences): Preferences {
                 false
         }
     )
+    copy.wantedExtras = copy.wantedExtras.filter({wish =>
+        for (d in menu.dishes) {
+            if (d.id == wish.dishId && d.available) {
+                return evaluateMemberFit(d, copy, IngredientAssociations()).status != "conflict"
+            }
+        }
+        false
+    })
     copy.wantedSetMealIds = copy.wantedSetMealIds.filter(
         {
             id =>

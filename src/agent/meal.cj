@@ -205,8 +205,9 @@ class MealCandidate {
     let kind: String
     let limit: Int64
     let step: Int64
+    let requested: Int64
     init(item: RecommendationItem, components: Array<Int64>, quantities: Array<Int64>, price: Int64, kind: String,
-        limit!: Int64 = 2, step!: Int64 = 1) {
+        limit!: Int64 = 2, step!: Int64 = 1, requested!: Int64 = 0) {
         this.item = item
         this.components = components
         this.componentQuantities = quantities
@@ -214,7 +215,17 @@ class MealCandidate {
         this.kind = kind
         this.limit = limit
         this.step = step
+        this.requested = requested
     }
+}
+
+func mealCandidateNext(c: MealCandidate, current: Int64): Array<Int64> {
+    let values = ArrayList<Int64>()
+    if (current + c.step <= c.limit) { values.add(current + c.step) }
+    if (c.requested > current && c.requested <= c.limit && c.requested != current + c.step) {
+        values.add(c.requested)
+    }
+    values.toArray()
 }
 
 let mealAutoExtraQuantityLimit: Int64 = 12
@@ -264,6 +275,9 @@ class MealFacts {
     let meta: Array<MealMetadata>
     let fit: Array<Array<MemberFit>>
     let excluded: Array<Bool>
+    let explicitQuantities: Array<Int64>
+    let hotLimit: Int64
+    let soupLimit: Int64
     let hotNeed: Int64
     let budget: ?Int64
     let halfNeeds: Array<Int64>
@@ -286,6 +300,25 @@ class MealFacts {
         fit = dishes.map({d => active.map({m => evaluateMealMemberFit(d, m.preferences, parsed.associations)})})
         excluded = dishes.map(
             {d => tableExclusion(parsed, d) || !d.available || d.restaurantId != parsed.menu.restaurant.id})
+        explicitQuantities = dishes.map({d =>
+            var total: Int64 = 0
+            for (m in active) {
+                if (evaluateMealMemberFit(d, m.preferences, parsed.associations).status == "fit") {
+                    total = checkedAdd(total, mealExtraQuantity(mealOptions(r, m.id), d.id))
+                }
+            }
+            total
+        })
+        var hotExtra: Int64 = 0
+        var soups: Int64 = 0
+        for (di in 0..dishes.size) {
+            if (meta[di].role == "hotMain" && explicitQuantities[di] > 2) {
+                hotExtra = checkedAdd(hotExtra, explicitQuantities[di] - 2)
+            }
+            if (meta[di].role == "soup") { soups = checkedAdd(soups, explicitQuantities[di]) }
+        }
+        hotLimit = checkedAdd(2 * hotNeed, hotExtra)
+        soupLimit = if (soups > 1) { soups } else { 1 }
         halfNeeds = members.map({m => appetiteHalfUnits(mealOptions(r, m.id).appetite)})
         stapleChoice = Array<Int64>(input.people, repeat: -1)
         stapleUnits = meta.map({m => m.stapleUnits ?? 0})
@@ -347,6 +380,7 @@ class MealFacts {
             var hasSoup = false;
             var extraLimit: Int64 = 0
             var autoExtra = false
+            var requestedLimit: Int64 = 0
             for (e in expansion.unwrap().dishes) {
                 var index: Int64 = -1
                 for (i in 0..dishes.size) {
@@ -362,6 +396,8 @@ class MealFacts {
                 if (fit[index].any({f => f.status == "fit"})) {
                     hasFit = true
                 }
+                let requestedUnits = (explicitQuantities[index] + e.quantity - 1) / e.quantity
+                if (requestedUnits > requestedLimit) { requestedLimit = requestedUnits }
                 let role = meta[index].role
                 if (role == "unknown") {
                     valid = false
@@ -419,16 +455,11 @@ class MealFacts {
             } else {
                 "extra"
             }
-            let limit = if (kind == "hot") {
-                2
-            } else if (kind == "soup") {
-                1
-            } else {
-                extraLimit
-            }
+            let normalLimit = if (kind == "hot") { 2 } else if (kind == "soup") { 1 } else { extraLimit }
+            let limit = if (requestedLimit > normalLimit) { requestedLimit } else { normalLimit }
             candidates.add(
                 MealCandidate(item, indexes.toArray(), quantities.toArray(), expansion.unwrap().totalFen, kind,
-                    limit: limit, step: if (kind == "extra" && !autoExtra) {
+                    limit: limit, requested: requestedLimit, step: if (kind == "extra" && !autoExtra) {
                         limit
                     } else {
                         1
@@ -594,7 +625,10 @@ func mealEvaluate(f: MealFacts, q: Array<Int64>, enforceBudget!: Bool = true, ma
     for (mi in 0..f.stapleChoice.size) {
         let di = f.stapleChoice[mi]
         if (di >= 0) {
-            needed[di]++;
+            let requested = if (mi < f.members.size) {
+                mealExtraQuantity(mealOptions(f.r, f.members[mi].id), f.dishes[di].id)
+            } else { 0 }
+            needed[di] = checkedAdd(needed[di], if (requested > 0) { requested } else { 1 });
             stapleIds[mi] = f.dishes[di].id
         } else if (di == -1) {
             deficits.add(
@@ -638,7 +672,7 @@ func mealEvaluate(f: MealFacts, q: Array<Int64>, enforceBudget!: Bool = true, ma
             continue
         }
         if (f.meta[di].role == "hotMain") {
-            if (dishQ[di] > 2) {
+            if (dishQ[di] > 2 && dishQ[di] > f.explicitQuantities[di]) {
                 return None
             }
             hot += dishQ[di]
@@ -656,7 +690,7 @@ func mealEvaluate(f: MealFacts, q: Array<Int64>, enforceBudget!: Bool = true, ma
             soup += dishQ[di]
         }
     }
-    if (hot > 2 * f.hotNeed || soup > 1) {
+    if (hot > f.hotLimit || soup > f.soupLimit) {
         return None
     }
     let allocated = mealAllocate(f, dishQ)
@@ -764,7 +798,7 @@ func mealEvaluate(f: MealFacts, q: Array<Int64>, enforceBudget!: Bool = true, ma
                 wishes.add(
                     UnmetWish(memberId: m.id, itemId: id, itemType: "dish",
                         reason: if (!suitable) {
-                            "希望${ownNeed}份；该额外项不可售、角色不符或不适配本人"
+                            "希望${ownNeed}份；该菜不可售、资料不足或不适配本人"
                         } else {
                             "希望${ownNeed}份；适配成员合计需${tableNeed}份，未全部入选或超出预算"
                         }))
@@ -1065,7 +1099,7 @@ public func buildMealRecommendation(r: MealRequest, clock!: Clock = SystemClock(
             let extraIds = HashSet<String>()
             for (w in o.wantedExtras) {
                 if (w.dishId.isEmpty() || w.quantity < 1 || w.quantity > 100 || extraIds.contains(w.dishId)) {
-                    throw IllegalArgumentException("小吃或饮料份数无效")
+                    throw IllegalArgumentException("菜品愿望份数无效")
                 }
                 extraIds.add(w.dishId)
             }
@@ -1113,18 +1147,18 @@ public func buildMealRecommendation(r: MealRequest, clock!: Clock = SystemClock(
                 if (!seed.complete && c.kind != "hot") {
                     continue
                 }
-                let q = seed.q.clone();
-                q[ci] += c.step
-                if (q[ci] > c.limit) {
-                    continue
-                };
-                expansions++
-                if (let Some(s) <- mealEvaluate(f, q)) {
-                    if (mealStateOrder(s, best[0]) == Ordering.LT) {
-                        best[0] = s
-                    }
-                    if (next.isNone() || mealStateOrder(s, next.getOrThrow()) == Ordering.LT) {
-                        next = Some(s)
+                for (quantity in mealCandidateNext(c, seed.q[ci])) {
+                    if (deadline.remainingMillis() <= 0 || expansions >= r.maxExpansions) { break }
+                    let q = seed.q.clone();
+                    q[ci] = quantity
+                    expansions++
+                    if (let Some(s) <- mealEvaluate(f, q)) {
+                        if (mealStateOrder(s, best[0]) == Ordering.LT) {
+                            best[0] = s
+                        }
+                        if (next.isNone() || mealStateOrder(s, next.getOrThrow()) == Ordering.LT) {
+                            next = Some(s)
+                        }
                     }
                 }
             }
@@ -1149,22 +1183,22 @@ public func buildMealRecommendation(r: MealRequest, clock!: Clock = SystemClock(
                     if (!state.complete && c.kind != "hot") {
                         continue
                     }
-                    let q = state.q.clone();
-                    q[ci] += c.step
-                    if (q[ci] > c.limit) {
-                        continue
-                    }
-                    let key = mealStateKey(q);
-                    if (seen.contains(key)) {
-                        continue
-                    };
-                    seen.add(key)
-                    expansions++
-                    if (let Some(s) <- mealEvaluate(f, q)) {
-                        if (mealStateOrder(s, best[0]) == Ordering.LT) {
-                            best[0] = s
+                    for (quantity in mealCandidateNext(c, state.q[ci])) {
+                        if (deadline.remainingMillis() <= 0 || expansions >= r.maxExpansions) { break }
+                        let q = state.q.clone();
+                        q[ci] = quantity
+                        let key = mealStateKey(q);
+                        if (seen.contains(key)) {
+                            continue
                         };
-                        next.add(s)
+                        seen.add(key)
+                        expansions++
+                        if (let Some(s) <- mealEvaluate(f, q)) {
+                            if (mealStateOrder(s, best[0]) == Ordering.LT) {
+                                best[0] = s
+                            };
+                            next.add(s)
+                        }
                     }
                 }
                 if (deadline.remainingMillis() <= 0 || expansions >= r.maxExpansions) {

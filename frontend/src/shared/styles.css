@@ -2798,3 +2798,11 @@ td {
   font-size: 12px;
   color: #b9c9c0;
 }
+
+.menu-dish .wish-add {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+}

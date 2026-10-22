@@ -262,19 +262,34 @@ test("simple preferences keep menu wishes, allergies and implicit staple choice"
     })
     .getByRole("button", { name: /想吃这道/ })
     .click();
+  const wontonCard = page.getByRole("article").filter({
+    has: page.getByRole("heading", { name: wonton.name, exact: true }),
+  });
+  await page.getByRole("button", { name: "主食", exact: true }).click();
+  await wontonCard
+    .getByRole("button", { name: "增加" + wonton.name, exact: true })
+    .click();
+  await expect(
+    wontonCard.getByLabel(wonton.name + "份数", { exact: true }),
+  ).toHaveValue("2");
   await page.getByRole("button", { name: "查看已选想吃", exact: true }).click();
   const selected = page.getByRole("region", { name: "已选想吃清单" });
-  await expect(selected.getByText(wonton.name, { exact: true })).toBeVisible();
-  await expect(selected.getByText(drink.name, { exact: true })).toBeVisible();
+  await expect(
+    selected.locator("li").filter({ hasText: wonton.name }),
+  ).toBeVisible();
+  await expect(
+    selected.locator("li").filter({ hasText: drink.name }),
+  ).toBeVisible();
   await selected
     .getByRole("button", { name: "取消想吃" + drink.name, exact: true })
     .click();
-  await expect(selected.getByText(drink.name, { exact: true })).toHaveCount(0);
-  const drinkCard = page
-    .getByRole("article")
-    .filter({
-      has: page.getByRole("heading", { name: drink.name, exact: true }),
-    });
+  await expect(
+    selected.locator("li").filter({ hasText: drink.name }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "饮品", exact: true }).click();
+  const drinkCard = page.getByRole("article").filter({
+    has: page.getByRole("heading", { name: drink.name, exact: true }),
+  });
   await expect(
     drinkCard.getByRole("button", { name: "想吃这道", exact: true }),
   ).toHaveAttribute("aria-pressed", "false");
@@ -341,6 +356,14 @@ test("simple preferences keep menu wishes, allergies and implicit staple choice"
   expect(
     state.recommendation.draft.items.some((i: any) => i.name === "米饭"),
   ).toBeFalsy();
+  expect(
+    state.self.preferences.wantedExtras.find((w: any) => w.dishId === wonton.id)
+      ?.quantity,
+  ).toBe(2);
+  expect(
+    state.recommendation.draft.items.find((i: any) => i.itemId === wonton.id)
+      ?.quantity,
+  ).toBe(2);
 });
 
 test("account error recovery, relogin defaults and local return navigation", async ({

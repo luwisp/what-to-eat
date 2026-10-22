@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from "vue";
 import type { Preferences, MenuSnapshot } from "./contracts";
+import { dishWishQuantity, changeDishWish } from "../features/menu/wishes";
 const prefs = defineModel<Preferences>({ required: true });
 const otherAvoid = ref(""),
   otherAllergen = ref(""),
@@ -59,6 +60,10 @@ const allergySummary = computed(() =>
     : "有食物过敏？",
 );
 function removeDish(id: string, meal = false) {
+  if (!meal) {
+    prefs.value = changeDishWish(prefs.value, id, 0);
+    return;
+  }
   const key = meal ? "wantedSetMealIds" : "wantedDishIds";
   prefs.value = {
     ...prefs.value,
@@ -279,7 +284,11 @@ const allergenOptions = [
             :aria-label="'移除想吃' + d.name"
             @click="removeDish(d.id)"
           >
-            {{ d.name }} ×
+            {{ d.name
+            }}<span v-if="dishWishQuantity(prefs, d.id) > 1">
+              × {{ dishWishQuantity(prefs, d.id) }}</span
+            >
+            ×
           </button>
           <button
             v-for="d in selectedMeals"

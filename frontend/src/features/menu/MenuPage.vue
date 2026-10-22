@@ -9,6 +9,7 @@ import type {
   RecommendationItem,
 } from "../../shared/contracts";
 import QuantityControl from "../../shared/QuantityControl.vue";
+import { dishWishQuantity, changeDishWish } from "./wishes";
 import {
   readPlan,
   writePlan,
@@ -133,7 +134,14 @@ watch(
   },
   { deep: true },
 );
+function setWishQuantity(id: string, quantity: number) {
+  prefs.value = changeDishWish(prefs.value, id, quantity);
+}
 function toggle(id: string, meal = false) {
+  if (!meal) {
+    setWishQuantity(id, dishWishQuantity(prefs.value, id) ? 0 : 1);
+    return;
+  }
   const prop = meal ? "wantedSetMealIds" : "wantedDishIds";
   prefs.value = {
     ...prefs.value,
@@ -156,16 +164,21 @@ const selectedWishes = computed(() => [
   ...prefs.value.wantedDishIds.map((id) => ({
     id,
     meal: false,
+    quantity: dishWishQuantity(prefs.value, id),
     name:
       menu.value?.dishes.find((dish) => dish.id === id)?.name ?? "菜品已失效",
   })),
   ...prefs.value.wantedSetMealIds.map((id) => ({
     id,
     meal: true,
+    quantity: 1,
     name:
       menu.value?.setMeals.find((meal) => meal.id === id)?.name ?? "套餐已失效",
   })),
 ]);
+const selectedPortions = computed(() =>
+  selectedWishes.value.reduce((sum, wish) => sum + wish.quantity, 0),
+);
 const selectedCount = computed(() =>
   editPlan.value
     ? plan.value.items.length
@@ -266,26 +279,22 @@ function done() {
                   :increase-disabled="!dish.available || !!error"
                   @change="(n) => changeQuantity(dish.id, n)"
                 />
+                <QuantityControl
+                  v-else-if="dishWishQuantity(prefs, dish.id) > 0"
+                  :name="dish.name"
+                  :quantity="dishWishQuantity(prefs, dish.id)"
+                  :increase-disabled="!dish.available"
+                  @change="(n) => setWishQuantity(dish.id, n)"
+                />
                 <button
                   v-else
-                  class="wish-button"
+                  class="wish-button wish-add"
                   :disabled="!dish.available"
-                  :aria-pressed="prefs.wantedDishIds.includes(dish.id)"
-                  @click="toggle(dish.id)"
+                  aria-pressed="false"
+                  :aria-label="dish.available ? '想吃这道' : '暂不可售'"
+                  @click="setWishQuantity(dish.id, 1)"
                 >
-                  <AppIcon
-                    :name="
-                      prefs.wantedDishIds.includes(dish.id) ? 'check' : 'plus'
-                    "
-                    :size="15"
-                  />
-                  {{
-                    !dish.available
-                      ? "暂不可售"
-                      : prefs.wantedDishIds.includes(dish.id)
-                        ? "已标记想吃"
-                        : "想吃这道"
-                  }}
+                  <AppIcon name="plus" :size="17" />
                 </button>
               </div>
             </div>
@@ -413,7 +422,12 @@ function done() {
             v-for="wish in selectedWishes"
             :key="(wish.meal ? 'meal:' : 'dish:') + wish.id"
           >
-            <span>{{ wish.name }}<small v-if="wish.meal">套餐</small></span>
+            <span
+              >{{ wish.name
+              }}<small
+                >{{ wish.meal ? "套餐 · " : "" }}{{ wish.quantity }} 份</small
+              ></span
+            >
             <button
               type="button"
               :aria-label="'取消想吃' + wish.name"
@@ -446,7 +460,7 @@ function done() {
         <strong
           >{{
             selectedCount
-              ? `已标记 ${selectedCount} 项想吃`
+              ? `已选 ${selectedCount} 项 · ${selectedPortions} 份`
               : "看到喜欢的，就标记吧"
           }}
           <span aria-hidden="true">{{ wishesOpen ? "⌄" : "⌃" }}</span></strong

@@ -221,6 +221,41 @@ class MealTests {
         @Expect(report.draft.unmetWishes.size,0)
     }
     @TestCase
+    func menuWishesKeepHotSoupAndStapleQuantities() {
+        let rice = dish("rice", ["大米"], price: 20, category: "staple")
+        rice.name = "米饭"
+        let prefs = Preferences(wantedDishIds: ["hot", "soup", "rice"],
+            wantedExtras: [ExtraWish(dishId: "hot", quantity: 3), ExtraWish(dishId: "soup", quantity: 2),
+                ExtraWish(dishId: "rice", quantity: 3)])
+        let input = RuleInput(menu: menu([dish("hot", ["白菜"], price: 100),
+            dish("soup", ["番茄"], price: 50, category: "soup"), rice]),
+            members: [member("m", prefs: prefs)], people: 1)
+        input.menu.mealMetadata = [DishMealFacts(dishId: "hot", role: "hotMain", vegetable: true),
+            DishMealFacts(dishId: "soup", role: "soup"),
+            DishMealFacts(dishId: "rice", role: "staple", stapleKind: "rice", stapleUnits: Some(1))]
+        let draft = recommendMeal(input).unwrap()
+        @Expect(draft.items.filter({i => i.itemId == "hot"})[0].quantity, 3)
+        @Expect(draft.items.filter({i => i.itemId == "soup"})[0].quantity, 2)
+        @Expect(draft.items.filter({i => i.itemId == "rice"})[0].quantity, 3)
+        @Expect(draft.unmetWishes.size, 0)
+        let reduced = checkMealRecommendation(input, [RecommendationItem(itemId: "hot"),
+            RecommendationItem(itemId: "soup", quantity: 2), RecommendationItem(itemId: "rice", quantity: 3)]).unwrap()
+        @Expect(reduced.unmetWishes.any({w => w.itemId == "hot" && w.reason.contains("3份")}), true)
+    }
+    @TestCase
+    func explicitHotQuantityStillAllowsAffordablePartialAndRejectsConflicts() {
+        let input = RuleInput(menu: menu([dish("hot", ["白菜"], price: 100)]),
+            members: [member("m", prefs: Preferences(stapleMode: "none", wantedDishIds: ["hot"],
+                wantedExtras: [ExtraWish(dishId: "hot", quantity: 3)]))], people: 1, budgetPerPersonFen: Some(150))
+        input.menu.mealMetadata = [DishMealFacts(dishId: "hot", role: "hotMain", vegetable: true)]
+        let draft = recommendMeal(input).unwrap()
+        @Expect(draft.items.filter({i => i.itemId == "hot"})[0].quantity, 1)
+        @Expect(draft.totalFen <= 150, true)
+        @Expect(draft.unmetWishes.any({w => w.itemId == "hot"}), true)
+        input.members[0].preferences.avoidFoods = ["白菜"]
+        @Expect(recommendMeal(input).unwrap().items.size, 0)
+    }
+    @TestCase
     func perMemberAllocationFindsSupplyThatOnlyFitsOthers() {
         let r = mealFixture(people: 2, budget: Some(600), options: [MealMemberOptions("m0", appetite: "extraLarge")])
         r.input.members[0].preferences.avoidFoods = ["白菜"]
