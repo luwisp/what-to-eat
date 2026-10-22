@@ -11,12 +11,12 @@ import shutil
 import subprocess
 import sys
 
-MARKER = '# BEGIN JUXIAOBAO NATIVE COMPAT v2'
+MARKER = '# BEGIN JUXIAOBAO NATIVE COMPAT v3'
 COMPAT_BLOCK = re.compile(
     r'(?ms)^# BEGIN JUXIAOBAO NATIVE COMPAT v\d+\n.*?^# END JUXIAOBAO NATIVE COMPAT v\d+\n?'
 )
 TOOLCHAIN_FIX = r'''
-# BEGIN JUXIAOBAO NATIVE COMPAT v2
+# BEGIN JUXIAOBAO NATIVE COMPAT v3
 # Keep diagnostics and -Werror for stdx itself, but separate C/C++ warnings.
 foreach(flag -Wnon-virtual-dtor -Wdelete-non-virtual-dtor -Woverloaded-virtual)
     string(REPLACE " ${flag}" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
@@ -40,17 +40,17 @@ if(JUXIAOBAO_NATIVE_CC_VERSION MATCHES "gcc|GCC|Free Software Foundation")
         string(REPLACE " ${flag}" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     endforeach()
     string(REPLACE " -fstandalone-debug" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-    # GCC 13 diagnoses the pinned stdx OpenSSL resolver more strictly than the
-    # compiler version it was released with. Keep both diagnostics visible,
-    # but do not let the upstream global -Werror turn them into build failures.
+    # GCC 13 diagnoses the pinned stdx OpenSSL resolver and JSON conversion
+    # more strictly than the compiler version they were released with. Keep
+    # the diagnostics visible, but do not let upstream -Werror fail the build.
     foreach(lang C CXX)
-        set(CMAKE_${lang}_FLAGS "${CMAKE_${lang}_FLAGS} -Wno-error=cast-function-type -Wno-error=address")
+        set(CMAKE_${lang}_FLAGS "${CMAKE_${lang}_FLAGS} -Wno-error=cast-function-type -Wno-error=address -Wno-error=conversion")
     endforeach()
 endif()
-# END JUXIAOBAO NATIVE COMPAT v2
+# END JUXIAOBAO NATIVE COMPAT v3
 '''
 ZLIB_FIX = r'''
-# BEGIN JUXIAOBAO NATIVE COMPAT v2
+# BEGIN JUXIAOBAO NATIVE COMPAT v3
 # libz.a is linked into stdx's shared library, so its objects must also be PIC.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Older third-party zlib triggers conversion diagnostics on newer GCC/Clang.
@@ -58,7 +58,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wno-error=conversion)
 endif()
-# END JUXIAOBAO NATIVE COMPAT v2
+# END JUXIAOBAO NATIVE COMPAT v3
 '''
 
 

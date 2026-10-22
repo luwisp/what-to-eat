@@ -84,13 +84,13 @@ class NativeBuildCompatibilityTests(unittest.TestCase):
             self.assertEqual(compat.prepare(root), 0)
             self.assertFalse(cache.exists())
 
-    def test_v1_patch_is_upgraded_and_native_cache_is_removed(self):
+    def test_v2_patch_is_upgraded_and_native_cache_is_removed(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             stdx, toolchain, zlib = fixture(root)
-            legacy = '''# BEGIN JUXIAOBAO NATIVE COMPAT v1
+            legacy = '''# BEGIN JUXIAOBAO NATIVE COMPAT v2
 # old compatibility block
-# END JUXIAOBAO NATIVE COMPAT v1
+# END JUXIAOBAO NATIVE COMPAT v2
 '''
             toolchain.write_text(toolchain.read_text().replace(
                 'if(CMAKE_BUILD_TYPE MATCHES Release)', legacy + 'if(CMAKE_BUILD_TYPE MATCHES Release)'))
@@ -104,10 +104,11 @@ class NativeBuildCompatibilityTests(unittest.TestCase):
             self.assertFalse(cache.exists())
             for path in (toolchain, zlib_file):
                 content = path.read_text()
-                self.assertIn('JUXIAOBAO NATIVE COMPAT v2', content)
-                self.assertNotIn('JUXIAOBAO NATIVE COMPAT v1', content)
+                self.assertIn('JUXIAOBAO NATIVE COMPAT v3', content)
+                self.assertNotIn('JUXIAOBAO NATIVE COMPAT v2', content)
             self.assertIn('-Wno-error=cast-function-type', toolchain.read_text())
             self.assertIn('-Wno-error=address', toolchain.read_text())
+            self.assertIn('-Wno-error=conversion', toolchain.read_text())
 
     def test_unknown_dependency_version_fails_before_any_write(self):
         with tempfile.TemporaryDirectory() as temp:
