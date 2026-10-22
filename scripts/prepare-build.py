@@ -11,9 +11,12 @@ import shutil
 import subprocess
 import sys
 
-MARKER = '# BEGIN JUXIAOBAO NATIVE COMPAT v1'
+MARKER = '# BEGIN JUXIAOBAO NATIVE COMPAT v2'
+COMPAT_BLOCK = re.compile(
+    r'(?ms)^# BEGIN JUXIAOBAO NATIVE COMPAT v\d+\n.*?^# END JUXIAOBAO NATIVE COMPAT v\d+\n?'
+)
 TOOLCHAIN_FIX = r'''
-# BEGIN JUXIAOBAO NATIVE COMPAT v1
+# BEGIN JUXIAOBAO NATIVE COMPAT v2
 # Keep diagnostics and -Werror for stdx itself, but separate C/C++ warnings.
 foreach(flag -Wnon-virtual-dtor -Wdelete-non-virtual-dtor -Woverloaded-virtual)
     string(REPLACE " ${flag}" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
@@ -37,11 +40,17 @@ if(JUXIAOBAO_NATIVE_CC_VERSION MATCHES "gcc|GCC|Free Software Foundation")
         string(REPLACE " ${flag}" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     endforeach()
     string(REPLACE " -fstandalone-debug" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+    # GCC 13 diagnoses the pinned stdx OpenSSL resolver more strictly than the
+    # compiler version it was released with. Keep both diagnostics visible,
+    # but do not let the upstream global -Werror turn them into build failures.
+    foreach(lang C CXX)
+        set(CMAKE_${lang}_FLAGS "${CMAKE_${lang}_FLAGS} -Wno-error=cast-function-type -Wno-error=address")
+    endforeach()
 endif()
-# END JUXIAOBAO NATIVE COMPAT v1
+# END JUXIAOBAO NATIVE COMPAT v2
 '''
 ZLIB_FIX = r'''
-# BEGIN JUXIAOBAO NATIVE COMPAT v1
+# BEGIN JUXIAOBAO NATIVE COMPAT v2
 # libz.a is linked into stdx's shared library, so its objects must also be PIC.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Older third-party zlib triggers conversion diagnostics on newer GCC/Clang.
@@ -49,13 +58,18 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wno-error=conversion)
 endif()
-# END JUXIAOBAO NATIVE COMPAT v1
+# END JUXIAOBAO NATIVE COMPAT v2
 '''
 
 
 def insert_before(text, anchor, block, path):
     if MARKER in text:
         return text
+    legacy = list(COMPAT_BLOCK.finditer(text))
+    if legacy:
+        if len(legacy) != 1:
+            raise RuntimeError(f'Unsupported stdx compatibility patches: {path}')
+        return COMPAT_BLOCK.sub(block.strip() + '\n', text, count=1)
     if text.count(anchor) != 1:
         raise RuntimeError(f'Unsupported stdx build configuration: {path}; expected the pinned dependency version')
     return text.replace(anchor, block + '\n' + anchor, 1)
@@ -74,12 +88,18 @@ def prepare(project):
     new_toolchain = insert_before(old_toolchain, 'if(CMAKE_BUILD_TYPE MATCHES Release)', TOOLCHAIN_FIX, toolchain)
     new_zlib = old_zlib
     if MARKER not in new_zlib:
-        # Replace our older standalone PIC fix with the complete compatibility block.
-        new_zlib = new_zlib.removeprefix('set(CMAKE_POSITION_INDEPENDENT_CODE ON)\n')
-        anchor = re.search(r'^project\(zlib C\)\s*$', new_zlib, re.MULTILINE)
-        if not anchor:
-            raise RuntimeError(f'Unsupported zlib build configuration: {zlib}')
-        new_zlib = new_zlib[:anchor.end()] + '\n' + ZLIB_FIX + new_zlib[anchor.end():]
+        legacy = list(COMPAT_BLOCK.finditer(new_zlib))
+        if legacy:
+            if len(legacy) != 1:
+                raise RuntimeError(f'Unsupported stdx compatibility patches: {zlib}')
+            new_zlib = COMPAT_BLOCK.sub(ZLIB_FIX.strip() + '\n', new_zlib, count=1)
+        else:
+            # Replace our older standalone PIC fix with the complete compatibility block.
+            new_zlib = new_zlib.removeprefix('set(CMAKE_POSITION_INDEPENDENT_CODE ON)\n')
+            anchor = re.search(r'^project\(zlib C\)\s*$', new_zlib, re.MULTILINE)
+            if not anchor:
+                raise RuntimeError(f'Unsupported zlib build configuration: {zlib}')
+            new_zlib = new_zlib[:anchor.end()] + '\n' + ZLIB_FIX + new_zlib[anchor.end():]
     new_hook = old_hook
     hook_marker = '// JUXIAOBAO: psutil is only used by the Windows cwd probe.'
     if hook_marker not in old_hook:

@@ -84,6 +84,31 @@ class NativeBuildCompatibilityTests(unittest.TestCase):
             self.assertEqual(compat.prepare(root), 0)
             self.assertFalse(cache.exists())
 
+    def test_v1_patch_is_upgraded_and_native_cache_is_removed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stdx, toolchain, zlib = fixture(root)
+            legacy = '''# BEGIN JUXIAOBAO NATIVE COMPAT v1
+# old compatibility block
+# END JUXIAOBAO NATIVE COMPAT v1
+'''
+            toolchain.write_text(toolchain.read_text().replace(
+                'if(CMAKE_BUILD_TYPE MATCHES Release)', legacy + 'if(CMAKE_BUILD_TYPE MATCHES Release)'))
+            zlib_file = zlib / 'CMakeLists.txt'
+            zlib_file.write_text(zlib_file.read_text() + legacy)
+            cache = stdx / 'build_temp/build'
+            cache.mkdir(parents=True)
+            (cache / 'CMakeCache.txt').write_text(f'CMAKE_HOME_DIRECTORY:INTERNAL={stdx}\n')
+
+            self.assertEqual(compat.prepare(root), 3)
+            self.assertFalse(cache.exists())
+            for path in (toolchain, zlib_file):
+                content = path.read_text()
+                self.assertIn('JUXIAOBAO NATIVE COMPAT v2', content)
+                self.assertNotIn('JUXIAOBAO NATIVE COMPAT v1', content)
+            self.assertIn('-Wno-error=cast-function-type', toolchain.read_text())
+            self.assertIn('-Wno-error=address', toolchain.read_text())
+
     def test_unknown_dependency_version_fails_before_any_write(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -114,7 +139,13 @@ class NativeBuildCompatibilityTests(unittest.TestCase):
             _, toolchain, zlib = fixture(root)
             # This is the actual failure class: narrowing conversion in third-party
             # C code, plus language-specific flags mixed into the other language.
-            (zlib / 'smoke.c').write_text('unsigned char narrow(unsigned long n) { return n; }\nint main(void) { return narrow(0); }\n')
+            (zlib / 'smoke.c').write_text(
+                '#include <stdio.h>\n'
+                'typedef int (*callback)(void *);\n'
+                'static long incompatible(void *value) { return value != 0; }\n'
+                'unsigned char narrow(unsigned long n) { return n; }\n'
+                'int main(void) { callback cb = (callback)incompatible; '
+                'return (&puts == NULL) || cb(NULL) || narrow(0); }\n')
             (zlib / 'smoke.cpp').write_text('int main() { return 0; }\n')
             with (zlib / 'CMakeLists.txt').open('a') as cmake:
                 cmake.write('enable_language(CXX)\nadd_library(c_smoke STATIC smoke.c)\nadd_executable(cpp_smoke smoke.cpp)\n')
@@ -136,6 +167,8 @@ class NativeBuildCompatibilityTests(unittest.TestCase):
             self.assertNotIn('-Wno-shorten-64-to-32', c)
             self.assertIn('-Werror', c)
             self.assertIn('-Wno-error=conversion', c)
+            self.assertIn('-Wno-error=cast-function-type', c)
+            self.assertIn('-Wno-error=address', c)
             self.assertIn('-fPIC', c)
 
 
