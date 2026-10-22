@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+python3 -m unittest discover -s tests -p 'test_build_compat.py'
 python3 scripts/generate-models.py
 python3 scripts/generate-ingredients.py
 # Vite clears web/. Restore the local menu images even if a later check fails.

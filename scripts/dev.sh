@@ -5,6 +5,9 @@ env_file=${JUXIAOBAO_ENV_FILE:-.env}
 if [ -f "$env_file" ]; then set -a; source "$env_file"; set +a; fi
 export JUXIAOBAO_PORT=${JUXIAOBAO_PORT:-8080}
 export JUXIAOBAO_PUBLIC_BASE_URL=${JUXIAOBAO_PUBLIC_BASE_URL:-http://127.0.0.1:$JUXIAOBAO_PORT}
+# Fail early on missing native tools, and repair existing stdx sources/caches
+# before spending time building the frontend. No system pip installs are used.
+bash scripts/cj.sh prepare
 npm --prefix frontend run build
 if [ "${1:-}" = --component-demo ]; then
   bash scripts/build-integration-server.sh

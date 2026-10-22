@@ -16,6 +16,14 @@ if [ -d "$project_dir/.deps/build-tools/include/openssl" ]; then
 fi
 export LD_LIBRARY_PATH="$project_dir/target/release/stdx:$project_dir/.deps/build-tools/lib:$project_dir/.deps/stdx/target/release/stdx:${LD_LIBRARY_PATH:-}"
 cd "$project_dir"
+case "${1:-}" in
+  prepare)
+    exec python3 scripts/prepare-build.py --check-tools
+    ;;
+  build|test|run|bench)
+    python3 scripts/prepare-build.py --check-tools
+    ;;
+esac
 if [ "${1:-}" = exec ]; then
   shift
   exec "$@"

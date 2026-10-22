@@ -1,11 +1,36 @@
 # 聚小宝 · Juxiaobao
 
-仓颉 1.2.0 + Vue 3 的多人聚餐点菜应用。业务服务使用 SQLite 保存账号、餐馆菜单、聚餐局和推荐结果；不配置模型也可以运行规则推荐。
+仓颉 1.2.0 + Vue 3 的多人聚餐点菜应用。业务服务使用 SQLite 保存账号、餐馆菜单、聚餐局和推荐结果
+
+## 前置依赖
+
+- 仓颉 1.2.0
+- Node.js 22
+- Python 3
+
+源码构建还需要 CMake、Ninja、Clang 15 和完整的 OpenSSL 开发头文件。
+
+已测试平台：fedora44、ubuntu24.04
+
+### Ubuntu 24.04 构建
+
+先安装系统提供的构建依赖（Node.js 22 和仓颉 SDK 仍按前置依赖准备）：
+
+```sh
+sudo apt update
+sudo apt install -y build-essential cmake ninja-build libssl-dev python3 git curl ca-certificates
+
+# 新环境首次下载依赖；已有 .deps 也可重复执行，不覆盖应用数据。
+bash scripts/bootstrap-deps.sh
+# 可单独检查和修复原生构建环境；dev.sh 也会自动执行。
+bash scripts/cj.sh prepare
+bash scripts/dev.sh
+```
+前端超过 500 kB 的提示是体积警告，不影响启动。
 
 ## 快速启动
 
-在项目根目录执行。当前验证环境为 Linux x86_64、仓颉 1.2.0、Node.js 22、Python 3。源码构建还需要 CMake、Ninja、Clang 15 和完整的 OpenSSL 开发头文件。
-
+在项目根目录执行。当前验证环境为 Linux x86_64、。
 ```sh
 export JUXIAOBAO_CANGJIE_SDK=/你的SDK目录/cangjie
 
@@ -16,23 +41,35 @@ bash scripts/bootstrap-deps.sh
 
 npm ci
 npm --prefix frontend ci
-cp .env.example .env
+cp .env.example .env 
+# 这里可以先配置文件再进入下一步
 bash scripts/dev.sh
 ```
+默认打开 [首页](http://127.0.0.1:8080/)。`scripts/dev.sh` 会依次构建前端和后端、首次导入测试数据菜单，然后启动业务服务。
 
-默认打开 [首页](http://127.0.0.1:8080/)。`scripts/dev.sh` 会依次构建前端和后端、首次导入老乡鸡菜单、补齐旧库菜单角色资料、恢复菜品图片，然后启动业务服务。首次编译 stdx 会比较慢。停止服务按 `Ctrl+C`，再次启动仍保留原数据库内容，不会重新导入覆盖商家改动。
+首次编译 stdx 会比较慢。停止服务按 `Ctrl+C`，再次启动仍保留原数据库内容，不会重新导入覆盖商家改动。
 
-`.env` 由启动脚本读取，端口和地址在其中修改。`JUXIAOBAO_PUBLIC_BASE_URL` 必须与浏览器实际访问地址一致，包括协议、主机名和端口；`localhost` 与 `127.0.0.1` 不能混用，否则账号或菜单写入、WebSocket 连接可能被来源校验拒绝。例如使用当前开发地址时：
 
+### 配置文件
+
+`.env` 由启动脚本读取，端口和地址在其中修改。`JUXIAOBAO_PUBLIC_BASE_URL` 必须与浏览器实际访问地址一致，包括协议、主机名和端口；
+
+`localhost` 与 `127.0.0.1` 不能混用。
+
+配置参考：
 ```dotenv
 JUXIAOBAO_HOST=127.0.0.1
 JUXIAOBAO_PORT=8092
-JUXIAOBAO_PUBLIC_BASE_URL=http://localhost:8092
+JUXIAOBAO_PUBLIC_BASE_URL=http://127.0.0.1:8092
 JUXIAOBAO_DB_PATH=data/runtime/juxiaobao.sqlite
+
+DEEPSEEK_API_KEY=你的密钥
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-flash
 ```
+密钥或模型名称为空时使用规则推荐，文字整理和 AI 聊天不可用。
 
 不读取项目 `.env`、单独指定配置时：
-
 ```sh
 JUXIAOBAO_ENV_FILE=/dev/null JUXIAOBAO_PORT=8081 \
   JUXIAOBAO_PUBLIC_BASE_URL=http://127.0.0.1:8081 bash scripts/dev.sh
@@ -40,12 +77,10 @@ JUXIAOBAO_ENV_FILE=/dev/null JUXIAOBAO_PORT=8081 \
 
 ### 页面入口
 
-以下路径均相对于同一个业务服务地址。消费者端、商家端和 API 不需要分别启动。
 
 | 路径 | 用途 |
 | --- | --- |
 | `/` | 首页：扫码、输入餐馆码或同站邀请链接；右上角进入账号页 |
-| `/r/LAOXIANGJI` | 内置老乡鸡示例餐馆：先看菜单或直接建局 |
 | `/r/:code/menu` | 菜单、图片、单点和套餐，标记想吃 |
 | `/s/:code` | 聚餐概览、邀请、成员状态、预算、推荐及调整 |
 | `/s/:code/preferences` | 从成员列表进入本人的要求编辑，食量、辣度为滑竿 |
@@ -54,8 +89,6 @@ JUXIAOBAO_ENV_FILE=/dev/null JUXIAOBAO_PORT=8081 \
 | `/admin/` | 商家注册、登录、餐馆资料、菜单、套餐和餐馆二维码 |
 | `/health` | 服务健康检查，正常返回 `{"status":"ok","sdk":"1.2.0"}` |
 | `/api/capabilities` | 查看本次服务是否启用了 AI |
-
-首页同一个输入框支持餐馆码、聚餐码和本站链接，例如 `LAOXIANGJI` 或邀请弹窗中的聚餐码。服务端实际查找类型，不按长度猜测。新生成的餐馆码以 `R` 开头，聚餐码以 `J` 开头，分配与导入时均检查跨表重复；旧码继续兼容，若历史数据已存在重复则提示使用完整链接，不会进入错误类型。无效短码在首页原位提示，直接访问不存在餐馆时提供返回首页重新输入的入口。摄像头扫码需要浏览器授权及安全上下文（HTTPS 或浏览器认可的本机地址）；无法扫码时可手工输入。手机访问需要服务绑定可达地址，并将公开地址配置为手机实际访问的地址，使用 HTTPS 才能可靠启用摄像头。
 
 ## 账号与默认设置
 
@@ -67,15 +100,16 @@ JUXIAOBAO_ENV_FILE=/dev/null JUXIAOBAO_PORT=8081 \
 4. 新建或首次填写时带入默认设置；已有本局草稿和已提交要求优先，不会因修改账号默认设置而自动覆盖。
 5. 本次想吃的具体菜、套餐、食材和文字补充不保存为账号默认值。
 
-未登录也能看菜单、建局、加入、填写和点菜。账号会话与本机访客身份分开保存：退出账号不会移除已加入的聚餐身份。刷新或服务正常重启后，未过期的登录会话、账号默认设置及聚餐局可以恢复。账号登录会话有效期为 7 天，访客会话 30 天，聚餐局 24 小时；清除浏览器 Cookie 后不会自动找回原访客身份。
+未登录也能看菜单、建局、加入、填写和点菜。
 
 ### 商家
 
-打开 `/admin/`，注册商家账号，登录后创建自己的餐馆。可编辑名称和简介，管理菜品价格、图片地址、配方、辣度、上下架、分类、招牌及推荐角色资料，并维护套餐组分和价格。菜单沿用消费者点菜页的分类栏、图片卡片、口味标签和价格布局，可按菜名或食材搜索；新增和编辑在弹窗内完成。菜品和套餐图片使用上传方框，支持选择或拖入JPG、PNG、WebP，自动缩小并压缩，上传后可预览、替换或移除。分类只填一次（热菜、凉菜、汤、主食、小吃、饮品），推荐使用的角色由分类自动带入，不再另填“用餐角色”。餐馆入口链接及二维码在后台生成。
+1. 从首页右上角“我的”进入 `/account`，在登录／注册表单下方的小字进入商家工作台。
+2. 注册商家账号，登录后创建自己的餐馆。可编辑名称和简介，管理菜品价格、图片地址、配方、辣度、上下架、分类、招牌及推荐角色资料，并维护套餐组分和价格。
+3. 新增和编辑在弹窗内完成。菜品和套餐图片使用上传方框，支持选择或拖入JPG、PNG、WebP，自动缩小并压缩，上传后可预览、替换或移除。
+4. 餐馆入口链接及二维码在后台生成，扫码即可进入聚餐界面。
 
-消费者与商家是独立账号域：可使用相同账号名分别注册，登录一种身份不会自动获得另一种身份的权限。每个商家只能写入自己所属餐馆；没有内置管理员账号或默认密码。首次导入的 `LAOXIANGJI` 默认未分配商家，不会因注册新商家自动取得其管理权限。
-
-当前不提供找回密码、修改密码或账号删除页面。
+消费者与商家是独立账号域：可使用相同账号名分别注册
 
 ## 一桌用餐的流程
 
@@ -93,19 +127,7 @@ JUXIAOBAO_ENV_FILE=/dev/null JUXIAOBAO_PORT=8081 \
 
 ## AI 配置与边界
 
-在 `.env` 中填写后重启业务服务：
-
-```dotenv
-DEEPSEEK_API_KEY=你的密钥
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_MODEL=你的可用模型名称
-```
-
-密钥或模型名称为空时使用规则推荐，文字整理和 AI 聊天不可用。基础地址须为 HTTPS，模型需要支持当前的聊天及工具调用接口。首次推荐中模型超时、输出无效或校验失败时回退到规则推荐；对话调整失败时重新校验并保留原方案，避免覆盖手动编辑。
-
 文字随个人要求一起提交，推荐时 AI 接收所有已提交者的文字与选项，结合全桌菜单搭配；要求页不再放置单独的“整理文字”按钮。不吃与过敏仍应在对应选项中确认，文字不能放宽这些限制。结果页右下角“找点菜员聊聊”展开悬浮对话，回复与调整过程中保持展开，对话区自行滚动，整页不再重复跳转到顶部；模型推荐仍经过服务端的菜单、价格、配方、适配与预算校验。AI 可调用 `search_menu` 按招牌、口味、做法、食材、价格或辣度检索本店可售菜，调用 `get_dish` / `get_set_meal` 读取细节，再用 `edit_plan` 直接增加、移除或设置当前方案的份数。未操作的条目保留，结果仍由服务器重算和校验；AI 工具完成后继续生成贴合当前消息的简短回复；普通问候、菜品咨询或澄清只追加对话，不替换推荐方案，方案没有变化时不再提示“已调整”。这些工具只改这桌方案，不修改商家资料。支持点菜相关问答、简单闲聊及澄清；流式文字回复尚未实现。
-
-本地回归覆盖模型替身、输出校验和降级路径。此前在临时数据库中经用户授权真实调用过配置的 `deepseek-flash`，验证了文字整理及一次单人推荐，返回 `mode=ai` 且通过服务端校验。本轮新增的查菜和调整工具通过模型替身测试，未再次调用付费模型。真实多人 AI 推荐和连续 AI 调整尚未实测；扫码自动化覆盖摄像头失败后的手工入口，未以真实手机摄像头验证成功扫码。
 
 ## 数据与菜单导入
 
@@ -135,8 +157,6 @@ npm --prefix frontend exec -- playwright install chromium
 bash scripts/check.sh
 ```
 
-包括模型生成、前后端构建、仓颉单元测试、HTTP/WebSocket、真实入口及账号重启持久化、前端单元测试、浏览器业务流程、菜单导入和角色资料测试。测试需要本地端口权限；真实业务写入使用临时数据库。浏览器回归使用 8089、8095、4173、4175，请保持这些端口空闲。检查会重建 `web/`，并恢复本地数据库中的菜单图片。
-
 | 命令 | 用途 |
 | --- | --- |
 | `npm --prefix frontend run test -- --run` | 前端单元测试 |
@@ -165,7 +185,7 @@ JUXIAOBAO_API_ORIGIN=http://127.0.0.1:8080 npm --prefix frontend run dev -- --po
 - `src/auth/`：消费者／商家认证、Cookie 会话和用户默认设置。
 - `src/catalog/`：餐馆、菜单和套餐写入及归属校验。
 - `src/room/`：多人房间、WebSocket、推荐作业和状态变更。
-- `src/agent/`：规则、v3 份量选择器、AI 工具与校验。
+- `src/agent/`：规则、份量选择器、AI 工具与校验。
 - `src/store/`：Repository 与 SQLite 快照事务。
 - `frontend/src/`：消费者和商家 Vue 页面。
 - `scripts/generate-models.py`：共享模型源；修改字段后生成 `src/model/entities.cj` 和前端契约。
@@ -176,4 +196,4 @@ JUXIAOBAO_API_ORIGIN=http://127.0.0.1:8080 npm --prefix frontend run dev -- --po
 - **页面 404、图片丢失**：从仓库根目录运行启动脚本；前端单独构建后运行图片恢复命令。
 - **端口占用**：调整 `.env` 中端口和公开地址；测试端口有固定用途。
 - **SDK 未找到**：设置 `JUXIAOBAO_CANGJIE_SDK` 或 `CANGJIE_HOME`，SDK 根目录应包含 `envsetup.sh`。
-- **stdx 编译或 OpenSSL 头文件错误**：使用兼容的 Clang 15 和完整开发头文件，或执行带 `--local-tools` 的依赖准备。脚本同时修复 zlib 静态库 PIC 设置，避免首次 Linux 链接报 `R_X86_64_PC32`。
+- **stdx 编译或 OpenSSL 头文件错误**：先运行 `bash scripts/cj.sh prepare` 检查 C/C++ 编译器、CMake、Ninja 和 OpenSSL 头文件；Ubuntu 安装本节列出的 apt 依赖即可。兼容修复自动处理 GCC 警告参数和 zlib PIC；需要独立 Clang/OpenSSL 时仍可执行带 `--local-tools` 的依赖准备。
