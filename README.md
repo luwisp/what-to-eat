@@ -138,7 +138,7 @@ JUXIAOBAO_ENV_FILE=/dev/null JUXIAOBAO_PORT=8081 \
 # 首次导入或有意更新示例菜单。会重新应用 Excel 配方，已有商家编辑时慎用。
 python3 scripts/import-menu.py --db data/runtime/juxiaobao.sqlite
 
-# 仅恢复构建清理的图片，不改菜单或商家编辑。
+# 仅从数据库恢复缺失的图片，不改菜单或商家编辑。
 python3 scripts/restore-menu-assets.py --db data/runtime/juxiaobao.sqlite
 ```
 
@@ -165,8 +165,6 @@ bash scripts/check.sh
 | `npm --prefix frontend run test:e2e:full` | 真实 SQLite、账号、商家、聚餐和推荐浏览器联调，需先构建后端 |
 | `node --test tests/auth-integration.mjs` | 从空数据库验证正式启动脚本、账号隔离、退出及服务重启持久化 |
 | `bash scripts/check-platform.sh` | 额外平台、加密、SQLite 和服务探针检查 |
-| `bash scripts/algorithm-dev.sh` | 独立算法工作台，默认 `http://127.0.0.1:8091` |
-| `bash scripts/test-algorithm-dev.sh` | 工作台选择器与真实菜单 HTTP 回归 |
 
 需要前端热更新时，先运行正式业务服务，再在另一个终端执行（后端端口按实际配置调整）：
 
@@ -176,7 +174,7 @@ JUXIAOBAO_API_ORIGIN=http://127.0.0.1:8080 npm --prefix frontend run dev -- --po
 
 此时后端 `JUXIAOBAO_PUBLIC_BASE_URL` 要设为浏览器实际使用的 `http://127.0.0.1:5173`，以匹配写入和 WebSocket 来源。
 
-`bash scripts/dev.sh --component-demo` 是独立的 `TEST` 组件演示，使用内存菜单和测试身份，重启会清空房间，不能用于验证真实账号和商家菜单写入。独立算法工作台是调试入口，也不是消费者正式应用；其说明见 [工作台 README](dev/algorithm/README.md)。
+`bash scripts/dev.sh --component-demo` 是独立的 `TEST` 组件演示，使用内存菜单和测试身份，重启会清空房间，不能用于验证真实账号和商家菜单写入。
 
 直接运行 `bash scripts/cj.sh exec target/release/bin/juxiaobao` 只启动已编译服务，不会读取 `.env`、构建前端、导入新库或恢复图片；需事先完成这些步骤并导出所需环境变量。一般联调使用 `scripts/dev.sh`。
 

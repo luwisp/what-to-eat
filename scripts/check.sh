@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 python3 -m unittest discover -s tests -p 'test_build_compat.py'
 python3 scripts/generate-models.py
 python3 scripts/generate-ingredients.py
-# Vite clears web/. Restore the local menu images even if a later check fails.
+# Restore missing derived images even if a later check fails.
 restore_assets() {
   if [ -f "${JUXIAOBAO_DB_PATH:-data/runtime/juxiaobao.sqlite}" ]; then
     python3 scripts/restore-menu-assets.py --db "${JUXIAOBAO_DB_PATH:-data/runtime/juxiaobao.sqlite}"
