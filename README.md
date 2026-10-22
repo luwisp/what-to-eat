@@ -61,6 +61,8 @@ bash scripts/dev.sh
 JUXIAOBAO_HOST=127.0.0.1
 JUXIAOBAO_PORT=8092
 JUXIAOBAO_PUBLIC_BASE_URL=http://127.0.0.1:8092
+JUXIAOBAO_CJ_HEAP_SIZE=64MB
+JUXIAOBAO_BUILD_JOBS=1
 JUXIAOBAO_DB_PATH=data/runtime/juxiaobao.sqlite
 
 DEEPSEEK_API_KEY=你的密钥
@@ -196,4 +198,5 @@ JUXIAOBAO_API_ORIGIN=http://127.0.0.1:8080 npm --prefix frontend run dev -- --po
 - **页面 404、图片丢失**：从仓库根目录运行启动脚本；前端单独构建后运行图片恢复命令。
 - **端口占用**：调整 `.env` 中端口和公开地址；测试端口有固定用途。
 - **SDK 未找到**：设置 `JUXIAOBAO_CANGJIE_SDK` 或 `CANGJIE_HOME`，SDK 根目录应包含 `envsetup.sh`。
+- **`heapSize must be in range` 或随后出现 `Derive` 未定义**：仓颉宏运行时堆配置超过了机器物理内存。启动脚本默认使用 `JUXIAOBAO_CJ_HEAP_SIZE=64MB` 和单任务构建；不要在 shell 中用更大的全局 `cjHeapSize` 覆盖启动环境，需要调整时修改项目 `.env`。
 - **stdx 编译或 OpenSSL 头文件错误**：先运行 `bash scripts/cj.sh prepare` 检查 C/C++ 编译器、CMake、Ninja 和 OpenSSL 头文件；Ubuntu 安装本节列出的 apt 依赖即可。兼容修复自动处理 GCC 13 的 OpenSSL resolver、JSON conversion 告警、C/C++ 警告参数和 zlib PIC，并会升级旧版补丁及清理对应 CMake 缓存；需要独立 Clang/OpenSSL 时仍可执行带 `--local-tools` 的依赖准备。
