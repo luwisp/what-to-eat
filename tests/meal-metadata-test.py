@@ -56,6 +56,35 @@ class MetadataTests(unittest.TestCase):
             expected = 2 if name == '金牌老母鸡汤中份' else 5 if name == '金牌老母鸡汤大份' else 1
             self.assertEqual(fact['servesMax'], expected, name)
 
+    def test_import_and_startup_repair_preserve_noodle_kind(self):
+        noodle_names = ['香菇鸡汤面', '小炒鸡丁拌面', '酸辣爆炒牛肉拌面', '香辣牛肉面', '鸡丝热干面']
+        dishes = {d['name']: d for d in self.snapshot['dishes']}
+        facts = {f['dishId']: f for f in self.snapshot['mealMetadata']}
+        for name in noodle_names:
+            self.assertEqual(facts[dishes[name]['id']]['stapleKind'], 'noodles', name)
+        # Simulate an old database with complete metadata but the importer bug.
+        for name in noodle_names:
+            facts[dishes[name]['id']]['stapleKind'] = 'other'
+        # Merchant edits must not be reclassified using the old source row.
+        edited = dishes[noodle_names[-1]]
+        edited['name'] = '商家修改后的主食'
+        with sqlite3.connect(self.db) as db:
+            db.execute('UPDATE app_snapshot SET payload_json=? WHERE id=1', (json.dumps(self.snapshot),))
+        command = [sys.executable, str(ROOT / 'scripts/migrate-meal-metadata.py'), '--db', str(self.db)]
+        subprocess.run(command, check=True, capture_output=True)
+        with sqlite3.connect(self.db) as db:
+            repaired = json.loads(db.execute('SELECT payload_json FROM app_snapshot WHERE id=1').fetchone()[0])
+        repaired_facts = {f['dishId']: f for f in repaired['mealMetadata']}
+        for name in noodle_names[:-1]:
+            self.assertEqual(repaired_facts[dishes[name]['id']]['stapleKind'], 'noodles', name)
+        self.assertEqual(repaired_facts[edited['id']]['stapleKind'], 'other')
+        self.assertEqual(repaired['dishes'], self.snapshot['dishes'])
+        self.assertEqual(repaired['merchants'], self.snapshot['merchants'])
+        self.assertEqual(repaired['menuVersions'][0]['menuVersion'], self.snapshot['menuVersions'][0]['menuVersion'] + 1)
+        subprocess.run(command, check=True, capture_output=True)
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(json.loads(db.execute('SELECT payload_json FROM app_snapshot WHERE id=1').fetchone()[0]), repaired)
+
     def test_renamed_or_recategorized_recipe_loses_source_role(self):
         dish = next(d for d in self.snapshot['dishes'] if d['category'] == 'hot')
         dish['name'] = '已修改配方的新菜'

@@ -720,3 +720,134 @@ test("floating conversation stays open, preserves page position and handles repl
     page.getByRole("button", { name: "找点菜员聊聊", exact: true }),
   ).toBeVisible();
 });
+
+test("default demo merchant can sign in and manage the sample restaurant", async ({
+  page,
+}) => {
+  await page.goto("/admin/");
+  await page.getByLabel("账号", { exact: true }).fill("admin");
+  await page.getByLabel("密码", { exact: true }).fill("88888888");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "老乡鸡", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".merchant-dish-grid .menu-dish")).not.toHaveCount(
+    0,
+  );
+  await page.getByRole("button", { name: "餐馆入口", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: /\/r\/LAOXIANGJI$/ }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "老乡鸡", exact: true }),
+  ).toBeVisible();
+});
+
+test("home scan entry toggles camera off without a separate stop button or cancellation error", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const streams: MediaStream[] = [];
+    Object.defineProperty(window, "scanTestStreams", { value: streams });
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: {
+        getUserMedia: async () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = canvas.height = 120;
+          canvas.getContext("2d")!.fillRect(0, 0, 120, 120);
+          const stream = canvas.captureStream(1);
+          streams.push(stream);
+          return stream;
+        },
+      },
+    });
+  });
+  await page.goto("/");
+  const scan = page.locator(".scan-entry");
+  for (let round = 0; round < 2; round++) {
+    await scan.click();
+    await expect(scan).toHaveAttribute("aria-expanded", "true");
+    await expect(page.locator(".scanner video")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "停止扫码", exact: true }),
+    ).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() => (window as any).scanTestStreams.length))
+      .toBe(round + 1);
+    await scan.click();
+    await expect(page.locator(".scanner")).toHaveCount(0);
+    await expect(scan).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          (window as any).scanTestStreams.every((stream: MediaStream) =>
+            stream.getTracks().every((track) => track.readyState === "ended"),
+          ),
+        ),
+      )
+      .toBe(true);
+  }
+  await expect(page.getByLabel("或输入餐馆码 / 聚餐码")).toBeEnabled();
+});
+
+test("two members receive their separately chosen noodles and wonton staples", async ({
+  browser,
+}) => {
+  const host = await browser.newContext();
+  const guest = await browser.newContext();
+  const h = await host.newPage();
+  const g = await guest.newPage();
+  await h.goto("/r/LAOXIANGJI");
+  await h.getByLabel("用餐人数").fill("2");
+  await h.getByRole("button", { name: "创建聚餐局" }).click();
+  await expect(h).toHaveURL(/\/s\/[A-Za-z0-9]+$/);
+  const room = h.url();
+  const code = room.split("/s/")[1];
+  await h.getByRole("link", { name: "填写我的要求", exact: true }).click();
+  await h.getByRole("button", { name: "面条", exact: true }).click();
+  await h.getByRole("button", { name: "确认并返回", exact: true }).click();
+  await g.goto(room);
+  await g.getByRole("link", { name: "填写我的要求", exact: true }).click();
+  await g.getByRole("button", { name: "馄饨", exact: true }).click();
+  await g.getByRole("button", { name: "确认并返回", exact: true }).click();
+  await expect(h.getByText("2 / 2 人已填写", { exact: false })).toBeVisible();
+  await h.getByRole("button", { name: "确认方案", exact: true }).click();
+  await expect(h).toHaveURL(/\/result$/);
+  const state = await (await h.request.get(`/api/sessions/${code}`)).json();
+  const guestState = await (
+    await g.request.get(`/api/sessions/${code}`)
+  ).json();
+  const servings = state.recommendation.draft.mealMembers;
+  const noodles = servings.find(
+    (member: any) => member.memberId === state.self.id,
+  )?.stapleDishId;
+  const wonton = servings.find(
+    (member: any) => member.memberId === guestState.self.id,
+  )?.stapleDishId;
+  expect(noodles).toBeTruthy();
+  expect(wonton).toBeTruthy();
+  expect(noodles).not.toBe(wonton);
+  const menu = await (
+    await h.request.get("/api/restaurants/LAOXIANGJI/menu")
+  ).json();
+  expect(
+    menu.mealMetadata.find((fact: any) => fact.dishId === noodles)?.stapleKind,
+  ).toBe("noodles");
+  expect(menu.dishes.find((dish: any) => dish.id === wonton)?.name).toMatch(
+    /馄饨|混沌/,
+  );
+  expect(
+    state.recommendation.draft.items.some(
+      (item: any) => item.itemId === noodles,
+    ),
+  ).toBe(true);
+  expect(
+    state.recommendation.draft.items.some(
+      (item: any) => item.itemId === wonton,
+    ),
+  ).toBe(true);
+  await host.close();
+  await guest.close();
+});

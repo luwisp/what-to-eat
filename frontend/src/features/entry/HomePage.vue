@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onUnmounted } from "vue";
+import { ref, onUnmounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { api } from "../../shared/api";
 import { resolveEntry } from "./entry";
@@ -42,17 +42,28 @@ async function enter(value = code.value) {
   }
 }
 async function scan() {
+  if (scanning.value) {
+    controller?.abort();
+    scanning.value = false;
+    return;
+  }
   error.value = "";
   scanning.value = true;
-  controller = new AbortController();
-  await import("vue").then((v) => v.nextTick());
+  const current = new AbortController();
+  controller = current;
   try {
-    if (video.value)
-      await enter(await scanCode(video.value, controller.signal));
+    await nextTick();
+    if (!video.value || current.signal.aborted) return;
+    const value = await scanCode(video.value, current.signal);
+    if (!current.signal.aborted) await enter(value);
   } catch {
-    error.value = "未能读取二维码。也可以直接输入餐馆码或聚餐码。";
+    if (!current.signal.aborted)
+      error.value = "未能读取二维码。也可以直接输入餐馆码或聚餐码。";
   } finally {
-    scanning.value = false;
+    if (controller === current) {
+      scanning.value = false;
+      controller = undefined;
+    }
   }
 }
 onUnmounted(() => controller?.abort());
@@ -68,16 +79,23 @@ onUnmounted(() => controller?.abort());
       /></span>
     </div>
     <div class="entry-card card">
-      <button class="scan-entry" @click="scan">
+      <button
+        class="scan-entry"
+        :aria-expanded="scanning"
+        aria-controls="entry-scanner"
+        @click="scan"
+      >
         <span class="scan-icon"><AppIcon name="scan" :size="34" /></span>
         <span
-          ><strong>扫码进入</strong><small>扫描餐馆或邀请二维码</small></span
+          ><strong>{{ scanning ? "正在扫码" : "扫码进入" }}</strong
+          ><small>{{
+            scanning ? "再次点击收起" : "扫描餐馆或邀请二维码"
+          }}</small></span
         >
         <AppIcon name="arrow" :size="20" />
       </button>
-      <div v-if="scanning" class="scanner">
+      <div v-if="scanning" id="entry-scanner" class="scanner">
         <video ref="video" autoplay playsinline />
-        <button @click="controller?.abort()">停止扫码</button>
       </div>
       <form class="code-entry" @submit.prevent="enter()">
         <label for="restaurant-code">或输入餐馆码 / 聚餐码</label>

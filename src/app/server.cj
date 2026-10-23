@@ -22,6 +22,8 @@ public func serverConfigFromEnvironment(): ServerConfig {
 public func startServer(config: ServerConfig): Unit {
     let database = getVariable("JUXIAOBAO_DB_PATH") ?? "data/runtime/juxiaobao.sqlite"
     let repository = SqliteRepository(database)
+    let demoMessage = ensureDemoMerchant(repository).unwrap()
+    if (!demoMessage.isEmpty()) { println(demoMessage) }
     let imageRoot = getVariable("JUXIAOBAO_IMAGE_DIR") ?? database + ".uploads"
     let origin = getVariable("JUXIAOBAO_PUBLIC_BASE_URL") ?? "http://127.0.0.1:${config.port}"
     let auth = AuthService(repository, publicOrigin: origin)

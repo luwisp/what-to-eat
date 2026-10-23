@@ -267,7 +267,8 @@ def import_menu(args):
                 primary = [i for i in a.get('primaryIngredients', []) if i in d['ingredients']]
                 facts.append(dict(dishId=d['id'],role=roles.get(source['original']['分类'],'unknown'),
                     vegetable=bool(a.get('vegetable',False)) and bool(primary),primaryIngredients=primary,
-                    stapleUnits=a.get('stapleUnits'),stapleKind=a.get('stapleKind','other'),
+                    stapleUnits=a.get('stapleUnits'),stapleKind=a.get('stapleKind',
+                        'noodles' if source['original']['分类'] == '面条' else 'other'),
                     soupGroupId=a.get('soupGroupId',''),servesMax=a.get('servesMax')))
             snapshot['mealMetadata'] = [f for f in snapshot['mealMetadata'] if f['dishId'] not in (old_ids | new_ids)] + facts
             # Compare independent of array ordering; reimporting the same menu is a no-op.
