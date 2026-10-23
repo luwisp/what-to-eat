@@ -560,13 +560,6 @@ function allocatedDishesFor(
             </button>
           </li>
         </ul>
-        <button
-          class="add-member"
-          @click="editCompanion()"
-          :disabled="state.session.state === 'closed'"
-        >
-          ＋ 帮同行人填写
-        </button>
       </section>
       <details
         v-if="host"

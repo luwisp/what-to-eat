@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from "vue";
 import AppIcon from "../../shared/AppIcon.vue";
+import logo from "../../assets/juxiaobao-logo.png";
 import ImageUpload from "../../shared/ImageUpload.vue";
 import ModalSheet from "../../shared/ModalSheet.vue";
 import QRCode from "qrcode";
@@ -264,9 +265,16 @@ async function logout() {
 <template>
   <div class="merchant-app">
     <header class="app-header">
-      <a href="/admin/" class="brand"
-        >聚小宝 · 餐馆工作台<span>JUXIAOBAO</span></a
-      >
+      <a href="/admin/" class="brand merchant-brand">
+        <img
+          :src="logo"
+          class="brand-logo"
+          alt="聚小宝"
+          width="144"
+          height="48"
+        />
+        <span>餐馆工作台</span>
+      </a>
       <div class="row">
         <a href="/">切换到用户端</a
         ><button v-if="account" @click="logout">退出商家账号</button>

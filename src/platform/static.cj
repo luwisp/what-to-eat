@@ -23,6 +23,14 @@ public func serveFrontend(root: String, uploadsRoot!: String = ""): HttpRequestH
                         contentType = "text/css; charset=utf-8"
                     } else if (path.endsWith(".svg")) {
                         contentType = "image/svg+xml"
+                    } else if (path.endsWith(".png")) {
+                        contentType = "image/png"
+                    } else if (path.endsWith(".jpg") || path.endsWith(".jpeg")) {
+                        contentType = "image/jpeg"
+                    } else if (path.endsWith(".webp")) {
+                        contentType = "image/webp"
+                    } else if (path.endsWith(".gif")) {
+                        contentType = "image/gif"
                     } else {
                         jsonError(ctx, 404, "NOT_FOUND", "资源不存在");
                         return

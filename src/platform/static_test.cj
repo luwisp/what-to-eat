@@ -18,6 +18,10 @@ class StaticImageTests {
         try (file = File.create(root + "/menu-images/example.png")) {
             file.write(image)
         }
+        Directory.create(root + "/assets", recursive: true)
+        for (name in ["home.png", "logo.png", "photo.jpg", "photo.jpeg", "photo.webp", "photo.gif"]) {
+            try (file = File.create(root + "/assets/" + name)) { file.write(image) }
+        }
         let ready = AtomicBool(false)
         let router = HttpRouter()
         router.pages(serveFrontend(root))
@@ -48,7 +52,15 @@ class StaticImageTests {
             @Expect(response.status, 200)
             @Expect(response.headers.getFirst("content-type"), Some("image/png"))
             @Expect(readStaticBytes(response.body), image)
-            for (path in ["/menu-images/missing.jpg", "/menu-images/file.html", "/menu-images/nested/a.png"]) {
+            for ((name, mime) in [("home.png", "image/png"), ("logo.png", "image/png"),
+                ("photo.jpg", "image/jpeg"), ("photo.jpeg", "image/jpeg"),
+                ("photo.webp", "image/webp"), ("photo.gif", "image/gif")]) {
+                let asset = client.send(HttpRequestBuilder().url(base + "/assets/" + name).build())
+                @Expect(asset.status, 200)
+                @Expect(asset.headers.getFirst("content-type"), Some(mime))
+                @Expect(readStaticBytes(asset.body), image)
+            }
+            for (path in ["/menu-images/missing.jpg", "/menu-images/file.html", "/menu-images/nested/a.png", "/assets/file.html", "/assets/missing.png"]) {
                 let invalid = client.send(HttpRequestBuilder().url(base + path).build())
                 @Expect(invalid.status, 404)
                 readLimited(invalid.body)
@@ -57,6 +69,10 @@ class StaticImageTests {
             client.close();
             server.close();
             worker.get()
+            for (name in ["home.png", "logo.png", "photo.jpg", "photo.jpeg", "photo.webp", "photo.gif"]) {
+                removeIfExists(root + "/assets/" + name)
+            }
+            removeIfExists(root + "/assets")
             removeIfExists(root + "/menu-images/example.png")
             removeIfExists(root + "/menu-images")
             removeIfExists(root)

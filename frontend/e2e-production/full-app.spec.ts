@@ -7,6 +7,10 @@ test("unfilled seats show provisional dish portions and become personal after fi
   await page.getByLabel("用餐人数").fill("4");
   await page.getByRole("button", { name: "创建聚餐局" }).click();
   await expect(page).toHaveURL(/\/s\/[A-Za-z0-9]+$/);
+  await expect(
+    page.getByRole("button", { name: "＋ 帮同行人填写", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator(".member-placeholder")).toHaveCount(3);
   await page.getByRole("link", { name: "填写我的要求", exact: true }).click();
   await page.getByRole("button", { name: "确认并返回" }).click();
   await page.getByRole("button", { name: "确认方案", exact: true }).click();
@@ -35,6 +39,14 @@ test("unfilled seats show provisional dish portions and become personal after fi
   const companion = page.getByRole("dialog", { name: "帮同行人填写" });
   await companion.getByRole("button", { name: "保存同行人要求" }).click();
   await expect(companion).not.toBeVisible();
+  await expect(page.locator(".member-placeholder")).toHaveCount(2);
+  await expect(page.locator(".dining-members li")).toHaveCount(4);
+  await page
+    .getByRole("button", { name: "修改同行人 B的要求", exact: true })
+    .click();
+  const editor = page.getByRole("dialog", { name: "编辑同行人的要求" });
+  await expect(editor.getByLabel("称呼")).toHaveValue("同行人 B");
+  await editor.getByRole("button", { name: "取消", exact: true }).click();
   await page
     .getByRole("button", { name: "重新搭配这一桌", exact: true })
     .click();
@@ -563,7 +575,9 @@ test("recover entry, invite clearly, edit from members and open visual results",
     fullPage: true,
   });
   await page.getByRole("button", { name: "确认并返回" }).click();
-  await page.getByRole("button", { name: "＋ 帮同行人填写" }).click();
+  await page
+    .getByRole("button", { name: "填写同行人 A的要求", exact: true })
+    .click();
   const companion = page.getByRole("dialog", { name: "帮同行人填写" });
   await companion.getByLabel("称呼").fill("同行人 A");
   await companion.getByLabel("还有想说的？").fill("同行人想喝汤");
@@ -956,4 +970,96 @@ test("consumer and merchant switch in both directions while retaining independen
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+});
+
+test("Cangjie production server displays the home background and full wordmark", async ({
+  page,
+}) => {
+  await page.goto("http://127.0.0.1:8095/");
+  const logo = page.getByRole("img", { name: "聚小宝", exact: true });
+  await expect
+    .poll(() => logo.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBeGreaterThan(0);
+  const imageURL = await logo.getAttribute("src");
+  const background = await page
+    .locator(".home-welcome")
+    .evaluate((element) => getComputedStyle(element).backgroundImage);
+  const backgroundURL = background.match(/url\(["']?([^"')]+)["']?\)/)?.[1];
+  expect(backgroundURL).toBeTruthy();
+  for (const path of [imageURL!, backgroundURL!]) {
+    const response = await page.request.get(new URL(path, page.url()).href);
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toBe("image/png");
+    expect([...(await response.body()).subarray(0, 8)]).toEqual([
+      137, 80, 78, 71, 13, 10, 26, 10,
+    ]);
+  }
+  await page.screenshot({ path: "/tmp/juxiaobao-real-backend-home.png" });
+  await page.setViewportSize({ width: 320, height: 852 });
+  const rect = await logo.boundingBox();
+  expect(rect!.width / rect!.height).toBeCloseTo(3, 1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({ path: "/tmp/juxiaobao-real-backend-mobile.png" });
+  await page.goto("http://127.0.0.1:8095/admin/");
+  await expect
+    .poll(() =>
+      page
+        .locator(".brand-logo")
+        .evaluate((image: HTMLImageElement) => image.naturalWidth),
+    )
+    .toBeGreaterThan(0);
+});
+
+test("a fifth member joining four filled seats increases people once and preserves existing preferences", async ({
+  browser,
+}) => {
+  const host = await browser.newContext();
+  const guest = await browser.newContext();
+  const h = await host.newPage();
+  const g = await guest.newPage();
+  await h.goto("/r/LAOXIANGJI");
+  await h.getByLabel("用餐人数").fill("4");
+  await h.getByRole("button", { name: "创建聚餐局" }).click();
+  await expect(h).toHaveURL(/\/s\/[A-Za-z0-9]+$/);
+  const room = h.url();
+  const code = room.split("/s/")[1];
+  await h.getByRole("link", { name: "填写我的要求", exact: true }).click();
+  await h.getByRole("button", { name: "确认并返回", exact: true }).click();
+  for (const letter of ["A", "B", "C"]) {
+    await h
+      .getByRole("button", { name: `填写同行人 ${letter}的要求`, exact: true })
+      .click();
+    const form = h.getByRole("dialog", { name: "帮同行人填写", exact: true });
+    await form
+      .getByRole("button", { name: "保存同行人要求", exact: true })
+      .click();
+    await expect(form).not.toBeVisible();
+  }
+  await expect(h.getByText("4 / 4 人已填写", { exact: true })).toBeVisible();
+  const before = await (await h.request.get(`/api/sessions/${code}`)).json();
+  await g.goto(room);
+  await expect(g.locator(".dining-members li")).toHaveCount(5);
+  await expect(h.getByText("4 / 5 人已填写", { exact: true })).toBeVisible();
+  const joined = await (await g.request.get(`/api/sessions/${code}`)).json();
+  expect(joined.session.people).toBe(5);
+  expect(new Set(joined.members.map((member: any) => member.id)).size).toBe(5);
+  for (const member of before.members) {
+    const existing = joined.members.find(
+      (candidate: any) => candidate.id === member.id,
+    );
+    expect(existing.submitted).toBe(true);
+    expect(existing.preferences).toEqual(member.preferences);
+  }
+  await g.reload();
+  await expect(g.locator(".dining-members li")).toHaveCount(5);
+  const rejoined = await (await g.request.get(`/api/sessions/${code}`)).json();
+  expect(rejoined.session.people).toBe(5);
+  expect(rejoined.self.id).toBe(joined.self.id);
+  await expect(h.getByText("4 / 5 人已填写", { exact: true })).toBeVisible();
+  await host.close();
+  await guest.close();
 });

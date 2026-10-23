@@ -145,6 +145,23 @@ details[open] summary {
   font-size: 1.3rem;
   font-weight: 800;
 }
+.brand-logo {
+  display: block;
+  width: 144px;
+  height: auto;
+  aspect-ratio: 3 / 1;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.merchant-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.merchant-app .app-header {
+  flex-wrap: wrap;
+  gap: 12px;
+}
 .brand span {
   font-size: 0.6rem;
   letter-spacing: 0.22em;
@@ -370,15 +387,6 @@ td {
 .consumer-app .brand:hover {
   text-decoration: none;
 }
-.consumer-app .brand-symbol {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  background: var(--green-bright);
-  color: #fff;
-  border-radius: 11px;
-}
 .consumer-app .brand-caption {
   font-size: 12px;
   font-weight: 400;
@@ -527,6 +535,10 @@ td {
   background: transparent;
   flex: 1;
   font-size: 14px;
+}
+.entry-input input:focus {
+  outline: none;
+  box-shadow: none;
 }
 .entry-input button {
   flex-shrink: 0;
@@ -1098,6 +1110,11 @@ td {
   }
 }
 @media (max-width: 600px) {
+  .brand-logo {
+    width: 120px;
+    height: auto;
+  }
+
   .consumer-app .app-header {
     padding: 14px 16px;
   }
@@ -1460,14 +1477,6 @@ td {
 }
 .member-controls button:last-child {
   color: #9caaa2;
-}
-.add-member {
-  width: 100%;
-  border: 0;
-  background: #f7f9f8;
-  color: #697d71;
-  font-size: 13px;
-  margin-top: 10px;
 }
 .table-settings > summary {
   display: flex;
