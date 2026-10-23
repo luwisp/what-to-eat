@@ -437,8 +437,8 @@ td {
 .home-welcome {
   position: relative;
   overflow: hidden;
-  padding: 28px 28px 56px;
-  background: linear-gradient(115deg, #d4f5df, #ecfaf0);
+  padding: 28px 28px 100px;
+  background: #e4f8eb url("../assets/home-dining.png") center / cover no-repeat;
   border-radius: 22px;
 }
 .home-welcome .eyebrow {
@@ -460,13 +460,6 @@ td {
   color: #5a7e69;
   margin: 0;
   max-width: 75%;
-}
-.welcome-art {
-  position: absolute;
-  right: 24px;
-  top: 38px;
-  color: #9cdbb7;
-  transform: rotate(-12deg);
 }
 .entry-card {
   position: relative;
@@ -1119,15 +1112,17 @@ td {
   }
   .home-welcome {
     border-radius: 0;
-    padding: 28px 20px 60px;
+    padding: 28px 20px 190px;
+    background-image:
+      linear-gradient(to bottom, #e4f8eb, #e4f8eb00 32px),
+      url("../assets/home-dining.png");
+    background-size:
+      100% 190px,
+      auto 190px;
+    background-position: right bottom;
   }
   .home-welcome h1 {
     font-size: 27px;
-  }
-  .welcome-art {
-    right: -2px;
-    top: 55px;
-    opacity: 0.6;
   }
   .home-welcome p {
     max-width: 78%;

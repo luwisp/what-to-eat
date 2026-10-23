@@ -74,9 +74,6 @@ onUnmounted(() => controller?.abort());
       <span class="eyebrow">和喜欢的人，吃喜欢的菜</span>
       <h1>今天，一起吃什么？</h1>
       <p>从这一家餐馆，开始这一桌的好好吃饭。</p>
-      <span class="welcome-art" aria-hidden="true"
-        ><AppIcon name="dish" :size="100"
-      /></span>
     </div>
     <div class="entry-card card">
       <button
