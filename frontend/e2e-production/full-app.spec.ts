@@ -851,3 +851,62 @@ test("two members receive their separately chosen noodles and wonton staples", a
   await host.close();
   await guest.close();
 });
+
+test("consumer and merchant switch in both directions while retaining independent logins", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto("/account");
+  await expect(
+    page.getByRole("link", { name: "切换到商家端 →", exact: true }),
+  ).toBeVisible();
+  const login = "switch-" + Date.now();
+  expect(
+    (
+      await page.request.post("/api/user/register", {
+        data: { login, password: "switch-password-123" },
+      })
+    ).ok(),
+  ).toBe(true);
+  expect(
+    (
+      await page.request.post("/api/user/login", {
+        data: { login, password: "switch-password-123" },
+      })
+    ).ok(),
+  ).toBe(true);
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: login, exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "切换到商家端 →", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "商家登录", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("账号", { exact: true }).fill("admin");
+  await page.getByLabel("密码", { exact: true }).fill("88888888");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "老乡鸡", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "切换到用户端", exact: true }).click();
+  await page.getByRole("link", { name: "我的", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: login, exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "切换到商家端 →", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "老乡鸡", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "退出商家账号", exact: true }).click();
+  await page.getByRole("link", { name: "切换到用户端", exact: true }).click();
+  await page.getByRole("link", { name: "我的", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: login, exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});

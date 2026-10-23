@@ -104,9 +104,12 @@ async function logout() {
 </script>
 <template>
   <section class="narrow account-page">
-    <button @click="router.push(safeReturnTo(route.query.returnTo))">
-      ← 返回原页面
-    </button>
+    <div class="account-navigation">
+      <button @click="router.push(safeReturnTo(route.query.returnTo))">
+        ← 返回原页面
+      </button>
+      <a href="/admin/">切换到商家端 →</a>
+    </div>
     <h1>我的账号与默认设置</h1>
     <p class="hint">登录可复用常用要求，进入餐馆和聚餐局无需登录。</p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
@@ -133,9 +136,6 @@ async function logout() {
       ><button type="button" @click="registering = !registering">
         {{ registering ? "已有账号，去登录" : "还没有账号，去注册" }}
       </button>
-      <a class="merchant-login-link" href="/admin/"
-        >我是商家，进入餐馆工作台 →</a
-      >
     </form>
     <template v-else>
       <section class="card profile-card">

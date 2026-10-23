@@ -268,7 +268,7 @@ async function logout() {
         >聚小宝 · 餐馆工作台<span>JUXIAOBAO</span></a
       >
       <div class="row">
-        <a href="/">用户端</a
+        <a href="/">切换到用户端</a
         ><button v-if="account" @click="logout">退出商家账号</button>
       </div>
     </header>
