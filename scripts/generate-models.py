@@ -18,7 +18,8 @@ SCHEMA = {
     'VisitorSession': 'actor:Actor setCookie:?String',
     'ExtraWish': 'dishId:String quantity:Int64=1',
     'DishMealFacts': 'dishId:String role:String=unknown vegetable:Bool primaryIngredients:[String] stapleUnits:?Int64 stapleKind:String=other soupGroupId:String servesMax:?Int64',
-    'MealAllocation': 'memberId:String coverage:Int64 halfDishNeed:Int64 halfDishAllocated:Int64 stapleDishId:?String stapleOptOut:Bool',
+    'MealDishPortion': 'dishId:String halfDishUnits:Int64',
+    'MealAllocation': 'memberId:String coverage:Int64 halfDishNeed:Int64 halfDishAllocated:Int64 stapleDishId:?String stapleOptOut:Bool provisional:Bool hotDishes:[MealDishPortion]',
     'Preferences': 'appetite:String=normal stapleMode:String=default stapleDishId:?String wantedIngredients:[String] wantedExtras:[ExtraWish] wantedSpiceLevel:?Int64 allergens:[String] avoidFoods:[String] dietMode:String=none maxSpiceLevel:?Int64 tastePreferences:[String] wantedDishIds:[String] wantedSetMealIds:[String] note:String',
     'UserDefaultSettings': 'appetite:String=normal userId:String allergens:[String] avoidFoods:[String] dietMode:String=none maxSpiceLevel:?Int64 tastePreferences:[String] updatedAt:Int64',
     'Restaurant': 'id:String ownerId:String restaurantCode:String name:String description:String',
@@ -89,6 +90,7 @@ def decode(kind, value):
 
 
 MIGRATED = {
+ 'MealAllocation': {'provisional','hotDishes'},
  'Preferences': {'appetite','stapleMode','stapleDishId','wantedIngredients','wantedExtras','wantedSpiceLevel'},
  'UserDefaultSettings': {'appetite'}, 'MenuSnapshot': {'mealMetadata'},
  'DatabaseSnapshot': {'mealMetadata'},

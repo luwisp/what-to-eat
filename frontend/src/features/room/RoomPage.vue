@@ -7,6 +7,8 @@ import type {
   Preferences,
   MenuSnapshot,
   RecommendationItem,
+  MealAllocation,
+  Dish,
 } from "../../shared/contracts";
 import { api, getMenu, money, priceFen, copyJson } from "../../shared/api";
 import { connectRoom, type RoomConnection } from "../../shared/socket";
@@ -28,6 +30,11 @@ import {
 } from "../menu/planDraft";
 import PreferencesForm from "../../shared/PreferencesForm.vue";
 import MenuPage from "../menu/MenuPage.vue";
+import {
+  memberPlaceholders,
+  nextCompanionName,
+  mealMemberName,
+} from "./memberSlots";
 const aiEnabled = ref(false);
 const route = useRoute(),
   router = useRouter(),
@@ -97,6 +104,11 @@ const host = computed(
 );
 const submitted = computed(
   () => state.value?.members.filter((p) => p.submitted).length ?? 0,
+);
+const unfilledMembers = computed(() =>
+  state.value
+    ? memberPlaceholders(state.value.session.people, state.value.members)
+    : [],
 );
 const result = computed(() => state.value?.recommendation);
 const editingVersion = ref(0);
@@ -296,10 +308,12 @@ async function updateSession() {
     error.value = (e as Error).message;
   }
 }
-function editCompanion(id = "") {
+function editCompanion(id = "", nickname = "") {
   const member = state.value?.members.find((m) => m.id === id);
   companionId.value = id;
-  companionName.value = member?.nickname ?? "";
+  companionName.value =
+    member?.nickname ??
+    (nickname || nextCompanionName(state.value?.members ?? []));
   companionPrefs.value = member?.preferences
     ? copyJson(member.preferences)
     : emptyPreferences();
@@ -368,6 +382,24 @@ function suitableFor(memberId: string) {
         ),
     ) ?? []
   );
+}
+function allocatedDishesFor(
+  member: MealAllocation,
+): { dish: Dish; quantity: number | null }[] {
+  if (member.hotDishes?.length) {
+    return member.hotDishes.flatMap((portion) => {
+      const dish = result.value?.draft.expandedDishes.find(
+        (d) => d.dish.id === portion.dishId,
+      )?.dish;
+      return dish ? [{ dish, quantity: portion.halfDishUnits / 2 }] : [];
+    });
+  }
+  // Older saved results have no per-dish flow. Do not invent a share for pending seats.
+  if (member.provisional || !member.halfDishAllocated) return [];
+  return suitableFor(member.memberId).map(({ dish }) => ({
+    dish,
+    quantity: null,
+  }));
 }
 </script>
 <template>
@@ -505,6 +537,27 @@ function suitableFor(memberId: string) {
                 移除
               </button>
             </div>
+          </li>
+          <li
+            v-for="slot in unfilledMembers"
+            :key="'unfilled:' + slot.nickname"
+            class="member-placeholder"
+          >
+            <span class="member-avatar"
+              ><AppIcon name="group" :size="20"
+            /></span>
+            <div class="member-copy">
+              <strong>{{ slot.nickname }}</strong>
+              <span>待补充用餐要求，也可扫码加入</span>
+            </div>
+            <button
+              class="member-edit"
+              :aria-label="'填写' + slot.nickname + '的要求'"
+              :disabled="busy || state.session.state === 'closed'"
+              @click="editCompanion('', slot.nickname)"
+            >
+              填写 <AppIcon name="arrow" :size="14" />
+            </button>
           </li>
         </ul>
         <button
@@ -702,6 +755,7 @@ function suitableFor(memberId: string) {
             v-for="m in result.draft.mealMembers"
             :key="m.memberId"
             class="member-meal-card"
+            :class="{ 'is-provisional': m.provisional }"
           >
             <header>
               <span class="member-avatar"
@@ -709,7 +763,11 @@ function suitableFor(memberId: string) {
               ><strong>{{
                 m.memberId === state?.self?.id
                   ? "我"
-                  : state?.members.find((p) => p.id === m.memberId)?.nickname
+                  : mealMemberName(
+                      m.memberId,
+                      state?.members ?? [],
+                      unfilledMembers,
+                    )
               }}</strong
               ><span
                 :class="[
@@ -723,11 +781,18 @@ function suitableFor(memberId: string) {
                 >{{
                   m.halfDishAllocated >= m.halfDishNeed &&
                   (m.stapleOptOut || m.stapleDishId)
-                    ? "份量已配齐"
-                    : "还需补充"
+                    ? m.provisional
+                      ? "默认预分配"
+                      : "份量已配齐"
+                    : m.provisional
+                      ? "预分配待补齐"
+                      : "还需补充"
                 }}</span
               >
             </header>
+            <p v-if="m.provisional" class="hint">
+              按正常饭量预分配，饮食要求待确认。
+            </p>
             <div class="meal-supply">
               <span
                 >热菜 {{ m.halfDishAllocated / 2 }} /
@@ -750,13 +815,19 @@ function suitableFor(memberId: string) {
               }}</span>
             </div>
             <div class="member-fit-dishes">
-              <span v-for="d in suitableFor(m.memberId)" :key="d.dish.id"
+              <span v-for="d in allocatedDishesFor(m)" :key="d.dish.id"
                 ><img v-if="d.dish.imageUrl" :src="d.dish.imageUrl" alt="" />{{
                   d.dish.name
-                }}</span
+                }}<small v-if="d.quantity !== null">
+                  · {{ d.quantity }} 份</small
+                ></span
               >
-              <p v-if="!suitableFor(m.memberId).length">
-                暂无确定适配的菜，需要继续搭配
+              <p v-if="!allocatedDishesFor(m).length">
+                {{
+                  m.provisional
+                    ? "暂未预留到热菜，需要继续搭配"
+                    : "暂无已分配的热菜，需要继续搭配"
+                }}
               </p>
             </div>
           </article>

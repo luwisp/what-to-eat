@@ -7,6 +7,39 @@ import std.unittest.testmacro.*
 @Test
 class CoordinatorTests {
     @TestCase
+    func oldSavedPlanDisplaysPendingAllocationsWithoutChangingItemsOrConfirmingSeats() {
+        let repo = TestRepository()
+        repo.data.dishes = [Dish(id: "a", restaurantId: "r", ingredients: ["土豆"], priceFen: 1000),
+            Dish(id: "b", restaurantId: "r", ingredients: ["白菜"], priceFen: 500),
+            Dish(id: "rice", restaurantId: "r", name: "米饭", category: "staple", ingredients: ["大米"], priceFen: 200)]
+        repo.data.mealMetadata = [DishMealFacts(dishId: "a", role: "hotMain"),
+            DishMealFacts(dishId: "b", role: "hotMain"),
+            DishMealFacts(dishId: "rice", role: "staple", stapleKind: "rice", stapleUnits: Some(1))]
+        let rooms = RoomService(repo, TestClock())
+        let coordinator = RecommendationCoordinator(rooms)
+        let actor = Actor(visitorId: Some("host"))
+        let room = rooms.create(actor, CreateSessionInput(restaurantCode: "TEST", people: 4), "create").unwrap()
+        rooms.apply(actor, room.session.roomCode, RoomCommand.UpdatePreferences(Preferences(), true),
+            room.stateVersion, "submit").unwrap()
+        let job = coordinator.request(actor, room.session.roomCode, "recommend", None).unwrap()
+        coordinator.commitResult(job, coordinator.calculate(job).unwrap(), "rules").unwrap()
+        repo.transact({db =>
+            db.recommendations[0].draft.mealMembers = db.recommendations[0].draft.mealMembers[0..1]
+            Outcome.Ok(db)
+        }).unwrap()
+        let saved = repo.read().recommendations[0]
+        let latest = rooms.snapshot(actor, room.session.roomCode).unwrap()
+        let displayed = latest.recommendation.getOrThrow()
+        @Expect(displayed.id, saved.id)
+        @Expect(displayed.draft.toJson()["items"].toString(), saved.draft.toJson()["items"].toString())
+        @Expect(displayed.draft.mealMembers.size, 4)
+        @Expect(displayed.draft.mealMembers.filter({m => m.provisional}).size, 3)
+        @Expect(displayed.canConfirm, false)
+        @Expect(repo.read().recommendations[0].draft.mealMembers.size, 1)
+        @Expect(repo.read().participants.size, 1)
+    }
+
+    @TestCase
     func ordinaryReplyKeepsRecommendationIdentityAndRejectsStaleJobs() {
         let repo = TestRepository()
         repo.data.dishes = [Dish(id: "a", restaurantId: "r", ingredients: ["土豆"], priceFen: 1000)]

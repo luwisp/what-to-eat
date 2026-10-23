@@ -4,6 +4,7 @@ import juxiaobao.model.*
 import juxiaobao.platform.*
 import std.unittest.*
 import std.unittest.testmacro.*
+import stdx.encoding.json.*
 
 func mealMeta(id: String, role!: String = "hotMain", vegetable!: Bool = false, primary!: Array<String> = []): MealMetadata {
     MealMetadata(id, role: role, vegetable: vegetable, primaryIngredients: primary,
@@ -30,6 +31,89 @@ func mealFixture(people!: Int64 = 2, budget!: ?Int64 = None, options!: Array<Mea
 
 @Test
 class MealTests {
+    @TestCase
+    func pendingSeatsReceiveRealReservedPortionsWithoutDuplicatingSupply() {
+        let r = mealFixture(people: 4)
+        r.input.members = r.input.members[0..1]
+        let report = buildMealRecommendation(r).unwrap()
+        @Expect(report.draft.mealMembers.size, 4)
+        @Expect(report.members.size(), 4)
+        var total: Int64 = 0
+        for (m in report.draft.mealMembers) {
+            @Expect(m.halfDishAllocated, 2)
+            @Expect(m.stapleDishId, Some("rice"))
+            var allocated: Int64 = 0
+            for (p in m.hotDishes) { allocated += p.halfDishUnits }
+            @Expect(allocated, m.halfDishAllocated)
+            total += allocated
+        }
+        @Expect(total, 8)
+        @Expect(total <= 2 * report.hotSupply, true)
+        for (id in ["a", "b"]) {
+            var used: Int64 = 0
+            for (m in report.draft.mealMembers) {
+                for (p in m.hotDishes) { if (p.dishId == id) { used += p.halfDishUnits } }
+            }
+            let available = report.draft.expandedDishes.filter({d => d.dish.id == id})[0].quantity
+            @Expect(used <= 2 * available, true)
+        }
+        @Expect(report.draft.mealMembers[0].provisional, false)
+        @Expect(report.draft.mealMembers[1].memberId, "pending:0")
+        @Expect(report.draft.mealMembers[3].memberId, "pending:2")
+        @Expect(report.draft.mealMembers[1].provisional, true)
+        @Expect(r.input.members.size, 1)
+    }
+
+    @TestCase
+    func unsubmittedGuestsKeepTheirIdentityAndBecomePersonalizedOnlyAfterSubmitting() {
+        let r = mealFixture(people: 4)
+        r.input.members = r.input.members[0..2]
+        r.input.members[1].submitted = false
+        let draft = buildMealRecommendation(r).unwrap().draft
+        @Expect(draft.mealMembers[1].memberId, "m1")
+        @Expect(draft.mealMembers[1].provisional, true)
+        @Expect(draft.mealMembers[2].memberId, "pending:0")
+        @Expect(r.input.members[1].submitted, false)
+        r.input.members[1].preferences.avoidFoods = ["鸡肉"]
+        r.input.members[1].submitted = true
+        let updated = buildMealRecommendation(r).unwrap().draft
+        let guest = updated.mealMembers.filter({m => m.memberId == "m1"})[0]
+        @Expect(guest.provisional, false)
+        @Expect(guest.hotDishes.any({p => p.dishId == "a"}), false)
+        @Expect(updated.mealMembers.filter({m => m.provisional}).size, 2)
+    }
+
+    @TestCase
+    func pendingAllocationDoesNotInventHotDishesOrMissingStaplesInPartialPlans() {
+        let r = mealFixture(people: 4)
+        r.input.members = r.input.members[0..1]
+        let draft = validateMealItems(r, [RecommendationItem(itemId: "a"),
+            RecommendationItem(itemId: "rice", quantity: 2)]).unwrap()
+        @Expect(draft.mealStatus, "partial")
+        @Expect(draft.mealMembers.size, 4)
+        var total: Int64 = 0
+        for (m in draft.mealMembers) {
+            total += m.halfDishAllocated
+            for (p in m.hotDishes) { @Expect(p.dishId, "a") }
+        }
+        @Expect(total, 2)
+        @Expect(draft.mealMembers.filter({m => m.stapleDishId.isSome()}).size, 2)
+        let low = mealFixture(people: 4, budget: Some(0))
+        low.input.members = low.input.members[0..1]
+        let empty = buildMealRecommendation(low).unwrap().draft
+        @Expect(empty.totalFen, 0)
+        @Expect(empty.mealMembers.size, 4)
+        @Expect(empty.mealMembers.all({m => m.hotDishes.isEmpty() && m.stapleDishId.isNone()}), true)
+    }
+
+    @TestCase
+    func legacyAllocationsDecodeWithoutInventingDishSharesOrPendingStatus() {
+        let legacy = MealAllocation.fromJson(JsonValue.fromStr(
+            "{\"memberId\":\"m\",\"coverage\":1,\"halfDishNeed\":2,\"halfDishAllocated\":2,\"stapleDishId\":\"rice\",\"stapleOptOut\":false}").asObject())
+        @Expect(legacy.provisional, false)
+        @Expect(legacy.hotDishes.isEmpty(), true)
+    }
+
     @TestCase
     func visibleWishesInferStaplesAndRiceOverridesReplacement() {
         let rice = dish("rice", ["大米"], category: "staple")

@@ -321,6 +321,29 @@ public class DishMealFacts {
     }
 }
 
+public class MealDishPortion {
+    public var dishId: String
+    public var halfDishUnits: Int64
+
+    public init(dishId!: String = "",
+        halfDishUnits!: Int64 = 0) {
+        this.dishId = dishId
+        this.halfDishUnits = halfDishUnits
+    }
+
+    public func toJson(): JsonObject {
+        let obj = JsonObject()
+        obj.put("dishId", JsonString(dishId))
+        obj.put("halfDishUnits", JsonInt(halfDishUnits))
+        return obj
+    }
+
+    public static func fromJson(obj: JsonObject): MealDishPortion {
+        return MealDishPortion(dishId: obj["dishId"].asString().getValue(),
+            halfDishUnits: obj["halfDishUnits"].asInt().getValue())
+    }
+}
+
 public class MealAllocation {
     public var memberId: String
     public var coverage: Int64
@@ -328,19 +351,25 @@ public class MealAllocation {
     public var halfDishAllocated: Int64
     public var stapleDishId: ?String
     public var stapleOptOut: Bool
+    public var provisional: Bool
+    public var hotDishes: Array<MealDishPortion>
 
     public init(memberId!: String = "",
         coverage!: Int64 = 0,
         halfDishNeed!: Int64 = 0,
         halfDishAllocated!: Int64 = 0,
         stapleDishId!: ?String = None,
-        stapleOptOut!: Bool = false) {
+        stapleOptOut!: Bool = false,
+        provisional!: Bool = false,
+        hotDishes!: Array<MealDishPortion> = []) {
         this.memberId = memberId
         this.coverage = coverage
         this.halfDishNeed = halfDishNeed
         this.halfDishAllocated = halfDishAllocated
         this.stapleDishId = stapleDishId
         this.stapleOptOut = stapleOptOut
+        this.provisional = provisional
+        this.hotDishes = hotDishes
     }
 
     public func toJson(): JsonObject {
@@ -351,6 +380,8 @@ public class MealAllocation {
         obj.put("halfDishAllocated", JsonInt(halfDishAllocated))
         obj.put("stapleDishId", match (stapleDishId) { case Some(v) => JsonString(v); case None => JsonNull() })
         obj.put("stapleOptOut", JsonBool(stapleOptOut))
+        obj.put("provisional", JsonBool(provisional))
+        obj.put("hotDishes", JsonArray(hotDishes.map({item => item.toJson() })))
         return obj
     }
 
@@ -360,7 +391,9 @@ public class MealAllocation {
             halfDishNeed: obj["halfDishNeed"].asInt().getValue(),
             halfDishAllocated: obj["halfDishAllocated"].asInt().getValue(),
             stapleDishId: match (obj["stapleDishId"]) { case _: JsonNull => None; case _ => Some(obj["stapleDishId"].asString().getValue()) },
-            stapleOptOut: obj["stapleOptOut"].asBool().getValue())
+            stapleOptOut: obj["stapleOptOut"].asBool().getValue(),
+            provisional: if (obj.containsKey("provisional")) { obj["provisional"].asBool().getValue() } else { false },
+            hotDishes: if (obj.containsKey("hotDishes")) { obj["hotDishes"].asArray().getItems().toArray().map({item => MealDishPortion.fromJson(item.asObject()) }) } else { [] })
     }
 }
 

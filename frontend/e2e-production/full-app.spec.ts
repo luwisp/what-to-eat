@@ -1,5 +1,52 @@
 import { test, expect } from "@playwright/test";
 
+test("unfilled seats show provisional dish portions and become personal after filling", async ({
+  page,
+}) => {
+  await page.goto("/r/LAOXIANGJI");
+  await page.getByLabel("用餐人数").fill("4");
+  await page.getByRole("button", { name: "创建聚餐局" }).click();
+  await expect(page).toHaveURL(/\/s\/[A-Za-z0-9]+$/);
+  await page.getByRole("link", { name: "填写我的要求", exact: true }).click();
+  await page.getByRole("button", { name: "确认并返回" }).click();
+  await page.getByRole("button", { name: "确认方案", exact: true }).click();
+  await expect(page).toHaveURL(/\/result$/);
+  await page.getByText("看看每个人怎么吃", { exact: true }).click();
+  const cards = page.locator(".member-meal-card");
+  const provisional = page.locator(".member-meal-card.is-provisional");
+  await expect(cards).toHaveCount(4);
+  await expect(provisional).toHaveCount(3);
+  for (const name of ["同行人 A", "同行人 B", "同行人 C"]) {
+    const card = provisional.filter({ hasText: name });
+    await expect(card).toContainText("按正常饭量预分配，饮食要求待确认");
+    await expect(card).toContainText("热菜 1 / 1 份");
+    await expect(card.locator(".member-staple")).toContainText("米饭");
+    await expect(card.locator(".member-fit-dishes > span")).not.toHaveCount(0);
+    await expect(card.locator(".member-fit-dishes")).toContainText("份");
+  }
+  await expect(page.getByRole("button", { name: "确认这桌方案" })).toHaveCount(
+    0,
+  );
+  await page.reload();
+  await page.getByText("看看每个人怎么吃", { exact: true }).click();
+  await expect(provisional).toHaveCount(3);
+  await page.getByRole("link", { name: "← 返回这一桌" }).click();
+  await page.getByRole("button", { name: "填写同行人 B的要求" }).click();
+  const companion = page.getByRole("dialog", { name: "帮同行人填写" });
+  await companion.getByRole("button", { name: "保存同行人要求" }).click();
+  await expect(companion).not.toBeVisible();
+  await page
+    .getByRole("button", { name: "重新搭配这一桌", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/result$/);
+  await page.getByText("看看每个人怎么吃", { exact: true }).click();
+  await expect(cards).toHaveCount(4);
+  await expect(provisional).toHaveCount(2);
+  await expect(cards.filter({ hasText: "同行人 B" })).not.toHaveClass(
+    /is-provisional/,
+  );
+});
+
 test("real accounts, defaults, two members, v3 meals, manual edits and confirmation", async ({
   browser,
 }) => {

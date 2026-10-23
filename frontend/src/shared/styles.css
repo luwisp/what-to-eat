@@ -1442,6 +1442,16 @@ td {
   gap: 4px;
   padding: 8px 0 8px 12px;
 }
+.member-placeholder .member-avatar {
+  color: var(--muted);
+  background: #f7f9f8;
+  border: 1px dashed #cbd7cf;
+}
+.member-placeholder .member-edit {
+  border: 0;
+  background: none;
+  flex-shrink: 0;
+}
 .member-controls {
   display: flex;
   gap: 10px;

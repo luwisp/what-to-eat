@@ -63,6 +63,10 @@ export interface DishMealFacts {
   soupGroupId: string;
   servesMax: number | null;
 }
+export interface MealDishPortion {
+  dishId: string;
+  halfDishUnits: number;
+}
 export interface MealAllocation {
   memberId: string;
   coverage: number;
@@ -70,6 +74,8 @@ export interface MealAllocation {
   halfDishAllocated: number;
   stapleDishId: string | null;
   stapleOptOut: boolean;
+  provisional: boolean;
+  hotDishes: MealDishPortion[];
 }
 export interface Preferences {
   appetite: string;

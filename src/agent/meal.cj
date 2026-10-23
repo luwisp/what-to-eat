@@ -532,7 +532,8 @@ func mealStateOrder(a: MealState, b: MealState): Ordering {
 }
 
 // Integer max flow: each hot serving supplies two policy half-dish units, not measured weight.
-func mealAllocate(f: MealFacts, dishQ: Array<Int64>): Array<Int64> {
+func mealAllocate(f: MealFacts, dishQ: Array<Int64>,
+    portions!: ?ArrayList<Array<MealDishPortion>> = None): Array<Int64> {
     let selected = ArrayList<Int64>()
     for (di in 0..f.dishes.size) {
         if (dishQ[di] > 0 && f.meta[di].role == "hotMain") {
@@ -594,6 +595,18 @@ func mealAllocate(f: MealFacts, dishQ: Array<Int64>): Array<Int64> {
             residual[u][v] -= amount
             residual[v][u] += amount
             v = u
+        }
+    }
+    if (let Some(rows) <- portions) {
+        for (mi in 0..demands.size) {
+            let dishes = ArrayList<MealDishPortion>()
+            for (j in 0..selected.size) {
+                let units = residual[1 + selected.size + mi][1 + j]
+                if (units > 0) {
+                    dishes.add(MealDishPortion(dishId: f.dishes[selected[j]].id, halfDishUnits: units))
+                }
+            }
+            rows.add(dishes.toArray())
         }
     }
     Array<Int64>(demands.size, {mi => demands[mi] - residual[1 + selected.size + mi][sink]})
@@ -971,11 +984,43 @@ func mealDraft(f: MealFacts, s: MealState, supplied!: ?RecommendationDraft = Non
     draft.mealStatus = if (s.complete) { "complete" } else { "partial" }
     draft.estimatedHotNeed = f.hotNeed
     draft.estimatedHotSupply = s.hot
-    draft.mealMembers = Array<MealAllocation>(f.members.size, {mi =>
-        MealAllocation(memberId: f.members[mi].id, coverage: s.coverage[mi], halfDishNeed: f.halfNeeds[mi],
-            halfDishAllocated: s.allocated[mi], stapleDishId: if (s.stapleIds[mi].isEmpty()) { None } else { Some(s.stapleIds[mi]) },
-            stapleOptOut: f.stapleChoice[mi] == -2)
-    })
+    let portions = ArrayList<Array<MealDishPortion>>()
+    mealAllocate(f, s.dishQ, portions: Some(portions))
+    let pending = f.input.members.filter({m => !m.submitted})
+    let allocations = ArrayList<MealAllocation>()
+    for (mi in 0..f.members.size) {
+        allocations.add(MealAllocation(memberId: f.members[mi].id, coverage: s.coverage[mi],
+            halfDishNeed: f.halfNeeds[mi], halfDishAllocated: s.allocated[mi], hotDishes: portions[mi],
+            stapleDishId: if (s.stapleIds[mi].isEmpty()) { None } else { Some(s.stapleIds[mi]) },
+            stapleOptOut: f.stapleChoice[mi] == -2))
+    }
+    if (f.input.people > f.members.size) {
+        // Split the existing reserve flow, rather than allocating the same hot
+        // serving twice. Unsubmitted people use normal appetite until confirmed.
+        let pool = portions[f.members.size]
+        let remaining = pool.map({p => p.halfDishUnits})
+        for (pi in 0..(f.input.people - f.members.size)) {
+            let mi = f.members.size + pi
+            let dishes = ArrayList<MealDishPortion>()
+            var allocated: Int64 = 0
+            for (di in 0..pool.size) {
+                let units = if (remaining[di] < 2 - allocated) { remaining[di] } else { 2 - allocated }
+                if (units > 0) {
+                    dishes.add(MealDishPortion(dishId: pool[di].dishId, halfDishUnits: units))
+                    remaining[di] -= units
+                    allocated += units
+                }
+                if (allocated == 2) { break }
+            }
+            allocations.add(MealAllocation(memberId: if (pi < pending.size) {
+                    pending[pi].id
+                } else { "pending:${pi - pending.size}" },
+                coverage: dishes.size, halfDishNeed: 2, halfDishAllocated: allocated,
+                hotDishes: dishes.toArray(), provisional: true,
+                stapleDishId: if (s.stapleIds[mi].isEmpty()) { None } else { Some(s.stapleIds[mi]) }))
+        }
+    }
+    draft.mealMembers = allocations.toArray()
     draft.fits = draft.fits.filter(
         {
             entry =>
@@ -1029,6 +1074,9 @@ func mealDraft(f: MealFacts, s: MealState, supplied!: ?RecommendationDraft = Non
         } else {
             []
         })
+        .concat(if (f.input.people > f.members.size) {
+            ["未填写成员按正常饭量预分配，饮食要求待确认，填写后将重新校验搭配。"]
+        } else { [] })
         .concat(["份量按点菜习惯估算，可按实际饭量调整。"])
     draft
 }
@@ -1115,9 +1163,10 @@ public func buildMealRecommendation(r: MealRequest, clock!: Clock = SystemClock(
         let empty = Array<Int64>(f.candidates.size, repeat: 0)
         let initial = mealEvaluate(f, empty)
         if (initial.isNone()) {
-            let draft = validateRecommendation(f.input, []).unwrap()
+            let draft = validateMealItems(r, []).unwrap()
             let report = MealReport(draft, "noCandidate", false, f.hotNeed, 0, [1],
-                ["预算不足以提供所选主食；未擅自减少米饭，请提高预算或明确更改主食需求"], JsonArray([]))
+                ["预算不足以提供所选主食；未擅自减少米饭，请提高预算或明确更改主食需求"],
+                JsonArray(draft.mealMembers.map<JsonValue>({m => m.toJson()})))
             draft.mealStatus = "partial"
             draft.estimatedHotNeed = f.hotNeed
             draft.notices = draft.notices.concat(report.deficits)
@@ -1293,21 +1342,7 @@ public func buildMealRecommendation(r: MealRequest, clock!: Clock = SystemClock(
         }
         let s = best[0];
         let draft = mealDraft(f, s)
-        let rows = ArrayList<JsonValue>()
-        for (mi in 0..f.members.size) {
-            let row = JsonObject();
-            row.put("memberId", JsonString(f.members[mi].id));
-            row.put("coverage", JsonInt(s.coverage[mi]))
-            row.put("halfDishNeed", JsonInt(f.halfNeeds[mi]));
-            row.put("halfDishAllocated", JsonInt(s.allocated[mi]))
-            row.put("stapleDishId", if (s.stapleIds[mi].isEmpty()) {
-                JsonNull()
-            } else {
-                JsonString(s.stapleIds[mi])
-            })
-            row.put("stapleOptOut", JsonBool(f.stapleChoice[mi] == -2));
-            rows.add(row)
-        }
+        let rows = draft.mealMembers.map<JsonValue>({m => m.toJson()})
         let reached = match (f.budget) {
             case Some(b) => s.cost >= b - b / 10 && s.cost <= b;
             case None => false
@@ -1316,7 +1351,7 @@ public func buildMealRecommendation(r: MealRequest, clock!: Clock = SystemClock(
             "complete"
         } else {
             "partial"
-        }, reached, f.hotNeed, s.hot, s.score, s.deficits, JsonArray(rows.toArray()))
+        }, reached, f.hotNeed, s.hot, s.score, s.deficits, JsonArray(rows))
         report.expansions = expansions
         report.stopReason = stopReason
         report.elapsedMillis = clock.monotonicMillis() - start

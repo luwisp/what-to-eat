@@ -124,6 +124,17 @@ public func roomSnapshot(db: DatabaseSnapshot, s: Session, actor: Actor): RoomSn
             r.canConfirm = false
             r.accepted = false
         }
+        if (!invalid && !latestMenu.mealMetadata.isEmpty() && r.draft.mealMembers.size < s.people) {
+            // Older saved results only include submitted people. Upgrade their
+            // display allocation from the unchanged items, without saving or
+            // treating pending seats as confirmed participants.
+            let input = RuleInput(menu: latestMenu, members: db.participants.filter({p => p.sessionId == s.id}),
+                people: s.people, budgetPerPersonFen: s.budgetPerPersonFen, associations: r.draft.associations)
+            if (let Ok(draft) <- checkMealRecommendation(input, r.draft.items)) {
+                r.draft = draft
+                r.canConfirm = r.canConfirm && draft.mealStatus == "complete"
+            }
+        }
     }
     var job: ?RecommendationJob = None
     for (j in db.jobs) {
