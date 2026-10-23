@@ -972,18 +972,22 @@ test("consumer and merchant switch in both directions while retaining independen
   ).toBe(true);
 });
 
-test("Cangjie production server displays the home background and original branding", async ({
+test("Cangjie production server displays the home background and bowl brand icon", async ({
   page,
 }) => {
   await page.goto("http://127.0.0.1:8095/");
   await expect(page.locator(".brand")).toContainText("聚小宝");
-  await expect(page.locator(".brand-symbol svg")).toBeVisible();
+  const icon = page.locator("img.brand-symbol");
+  await expect
+    .poll(() => icon.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBeGreaterThan(0);
+  const iconURL = await icon.getAttribute("src");
   const background = await page
     .locator(".home-welcome")
     .evaluate((element) => getComputedStyle(element).backgroundImage);
   const backgroundURL = background.match(/url\(["']?([^"')]+)["']?\)/)?.[1];
   expect(backgroundURL).toBeTruthy();
-  for (const path of [backgroundURL!]) {
+  for (const path of [backgroundURL!, iconURL!]) {
     const response = await page.request.get(new URL(path, page.url()).href);
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toBe("image/png");

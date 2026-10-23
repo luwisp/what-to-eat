@@ -375,13 +375,11 @@ td {
   text-decoration: none;
 }
 .consumer-app .brand-symbol {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  background: var(--green-bright);
-  color: #fff;
-  border-radius: 11px;
+  display: block;
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 .consumer-app .brand-caption {
   font-size: 12px;
