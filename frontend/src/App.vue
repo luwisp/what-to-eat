@@ -2,7 +2,6 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import AppIcon from "./shared/AppIcon.vue";
-import logo from "./assets/juxiaobao-logo.png";
 const route = useRoute();
 const accountLink = computed(() =>
   route.path === "/" || route.path === "/account"
@@ -17,13 +16,8 @@ const showTabs = computed(
   <div class="consumer-app" :class="{ 'has-tabs': showTabs }">
     <header class="app-header">
       <RouterLink to="/" class="brand">
-        <img
-          :src="logo"
-          class="brand-logo"
-          alt="聚小宝"
-          width="144"
-          height="48"
-        />
+        <span class="brand-symbol"><AppIcon name="dish" :size="22" /></span
+        >聚小宝
       </RouterLink>
       <RouterLink v-if="!showTabs" :to="accountLink" class="header-account"
         ><AppIcon name="user" :size="19" />我的</RouterLink

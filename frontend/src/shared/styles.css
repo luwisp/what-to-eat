@@ -145,19 +145,6 @@ details[open] summary {
   font-size: 1.3rem;
   font-weight: 800;
 }
-.brand-logo {
-  display: block;
-  width: 144px;
-  height: auto;
-  aspect-ratio: 3 / 1;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-.merchant-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 .merchant-app .app-header {
   flex-wrap: wrap;
   gap: 12px;
@@ -386,6 +373,15 @@ td {
 }
 .consumer-app .brand:hover {
   text-decoration: none;
+}
+.consumer-app .brand-symbol {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: var(--green-bright);
+  color: #fff;
+  border-radius: 11px;
 }
 .consumer-app .brand-caption {
   font-size: 12px;
@@ -1110,11 +1106,6 @@ td {
   }
 }
 @media (max-width: 600px) {
-  .brand-logo {
-    width: 120px;
-    height: auto;
-  }
-
   .consumer-app .app-header {
     padding: 14px 16px;
   }

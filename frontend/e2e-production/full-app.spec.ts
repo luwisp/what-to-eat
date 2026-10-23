@@ -972,21 +972,18 @@ test("consumer and merchant switch in both directions while retaining independen
   ).toBe(true);
 });
 
-test("Cangjie production server displays the home background and full wordmark", async ({
+test("Cangjie production server displays the home background and original branding", async ({
   page,
 }) => {
   await page.goto("http://127.0.0.1:8095/");
-  const logo = page.getByRole("img", { name: "聚小宝", exact: true });
-  await expect
-    .poll(() => logo.evaluate((image: HTMLImageElement) => image.naturalWidth))
-    .toBeGreaterThan(0);
-  const imageURL = await logo.getAttribute("src");
+  await expect(page.locator(".brand")).toContainText("聚小宝");
+  await expect(page.locator(".brand-symbol svg")).toBeVisible();
   const background = await page
     .locator(".home-welcome")
     .evaluate((element) => getComputedStyle(element).backgroundImage);
   const backgroundURL = background.match(/url\(["']?([^"')]+)["']?\)/)?.[1];
   expect(backgroundURL).toBeTruthy();
-  for (const path of [imageURL!, backgroundURL!]) {
+  for (const path of [backgroundURL!]) {
     const response = await page.request.get(new URL(path, page.url()).href);
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toBe("image/png");
@@ -996,8 +993,6 @@ test("Cangjie production server displays the home background and full wordmark",
   }
   await page.screenshot({ path: "/tmp/juxiaobao-real-backend-home.png" });
   await page.setViewportSize({ width: 320, height: 852 });
-  const rect = await logo.boundingBox();
-  expect(rect!.width / rect!.height).toBeCloseTo(3, 1);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -1005,13 +1000,7 @@ test("Cangjie production server displays the home background and full wordmark",
   ).toBe(true);
   await page.screenshot({ path: "/tmp/juxiaobao-real-backend-mobile.png" });
   await page.goto("http://127.0.0.1:8095/admin/");
-  await expect
-    .poll(() =>
-      page
-        .locator(".brand-logo")
-        .evaluate((image: HTMLImageElement) => image.naturalWidth),
-    )
-    .toBeGreaterThan(0);
+  await expect(page.locator(".brand")).toContainText("聚小宝 · 餐馆工作台");
 });
 
 test("a fifth member joining four filled seats increases people once and preserves existing preferences", async ({
